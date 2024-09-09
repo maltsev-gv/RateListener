@@ -1,0 +1,144 @@
+﻿<Window x:Class="RateListener.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:RateListener" 
+        xmlns:viewmodels="clr-namespace:RateListener.ViewModels"
+        mc:Ignorable="d"
+        Title="Rate listener" Height="320" MinHeight="320" Width="550" WindowStartupLocation="CenterScreen"
+        Name="mainWindow" 
+        d:DataContext="{d:DesignInstance Type=viewmodels:MainViewModel}"  >
+  <Window.DataContext>
+    <viewmodels:MainViewModel/>
+  </Window.DataContext>
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="Auto"/>
+      <ColumnDefinition />
+      <ColumnDefinition Width="Auto"/>
+      <ColumnDefinition Width="4*"/>
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition/>
+      <RowDefinition/>
+      <RowDefinition/>
+      <RowDefinition/>
+      <RowDefinition/>
+      <RowDefinition/>
+      <RowDefinition/>
+      <RowDefinition/>
+      <RowDefinition/>
+    </Grid.RowDefinitions>
+
+    <Grid Grid.ColumnSpan="3" Grid.RowSpan="2">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition />
+        <ColumnDefinition Width="Auto"/>
+        <ColumnDefinition />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition/>
+      </Grid.RowDefinitions>
+
+      <ComboBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                      SelectedItem="{Binding SelectedBankProvider}" ItemsSource="{Binding SupportedBankProviders}" 
+                      DisplayMemberPath="Name"/>
+
+      <ComboBox Grid.Column="0" Grid.Row="1" ItemsSource="{Binding Currencies}" SelectedItem="{Binding SearchFromCurr}"/>
+      <Button Grid.Column="1" Grid.Row="1" Width="20" Height="20" Command="{Binding ExchangeCurrenciesCommand}" BorderThickness="0" 
+                    Padding="0" Background="Transparent">
+        <Border CornerRadius="7" Background="AliceBlue">
+          <Image  Source="{StaticResource ForthAndBack}"/>
+        </Border>
+      </Button>
+      <ComboBox Grid.Column="2" Grid.Row="1" ItemsSource="{Binding Currencies}" SelectedItem="{Binding SearchToCurr}"/>
+    </Grid>
+
+    <ListBox Grid.Column="3" Grid.RowSpan="4" ItemsSource="{Binding Chains}">
+      <ListBox.ItemTemplate>
+        <DataTemplate>
+          <TextBlock Text="{Binding Presentation}" Style="{StaticResource TextBlockWoMarginStyle}"/>
+        </DataTemplate>
+      </ListBox.ItemTemplate>
+    </ListBox>
+
+    <TextBlock Grid.Column="0" Grid.Row="2" Grid.ColumnSpan="3" Text="{Binding LastOptimum, StringFormat=Last optimum: {0}}" HorizontalAlignment="Center" FontSize="16"
+                   ToolTip="{Binding LastOptimumPrecised}"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="3" Text="Selling:"/>
+    <TextBox Grid.Column="1" Grid.Row="3" Text="{Binding CalcFrom, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
+    <TextBlock Grid.Column="2" Grid.Row="3" Text="{Binding SearchFromCurr}"/>
+
+    <CheckBox Grid.Column="0" Grid.Row="4" x:Name="cbFromFee" Content="-fee" IsChecked="{Binding IsFromFeeIncluded}" VerticalContentAlignment="Center" 
+                  HorizontalAlignment="Right" Padding="0" Margin="0,5"/>
+    <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="4" Grid.ColumnSpan="2" Margin="0">
+      <TextBox Text="{Binding FromFee, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"
+                 IsEnabled="{Binding ElementName=cbFromFee, Path=IsChecked}" Width="35"/>
+      <TextBlock Text="%" Margin="0"/>
+      <TextBlock Text="{Binding ToFeeCalculated, StringFormat=-{0:N2}}" Foreground="Gray"/>
+    </StackPanel>
+
+    <TextBlock Grid.Column="0" Grid.Row="5" Text="Will get:"/>
+    <TextBlock Grid.Column="1" Grid.Row="5" Text="{Binding ToCurrCalculated}" FontWeight="Bold"/>
+    <TextBlock Grid.Column="2" Grid.Row="5" Text="{Binding SearchToCurr}"/>
+
+    <TextBlock Grid.Column="0" Grid.Row="6" Text="Buying:"/>
+    <TextBox Grid.Column="1" Grid.Row="6" Text="{Binding CalcTo, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"/>
+    <TextBlock Grid.Column="2" Grid.Row="6" Text="{Binding SearchToCurr}"/>
+
+    <CheckBox Grid.Column="0" Grid.Row="7" x:Name="cbToFee" Content="+fee" IsChecked="{Binding IsToFeeIncluded}" VerticalContentAlignment="Center" 
+                  HorizontalAlignment="Right" Padding="0" Margin="0,5"/>
+    <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="7" Grid.ColumnSpan="2">
+      <TextBox Text="{Binding ToFee, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"
+                 IsEnabled="{Binding ElementName=cbToFee, Path=IsChecked}" Width="35"/>
+      <TextBlock Text="%" Margin="0"/>
+      <TextBlock Text="{Binding FromFeeCalculated, StringFormat=+{0:N2}}" Foreground="Gray"/>
+    </StackPanel>
+
+    <TextBlock Grid.Column="0" Grid.Row="8" Text="Will pay:"/>
+    <TextBlock Grid.Column="1" Grid.Row="8" Grid.ColumnSpan="2" Text="{Binding FromCurrCalculated}" FontWeight="Bold"/>
+    <TextBlock Grid.Column="2" Grid.Row="8" Text="{Binding SearchFromCurr}"/>
+    <Grid Grid.Row="4" Grid.Column="3" Grid.RowSpan="5">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition />
+        <ColumnDefinition />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition />
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <ListBox Grid.Column="0" Grid.RowSpan="7" ItemsSource="{Binding Rates}"/>
+
+      <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="5" VerticalAlignment="Bottom" HorizontalAlignment="Right" Margin="5,0">
+        <TextBlock Text="Updated:" Margin="0"/>
+        <TextBlock Text="{Binding LastUpdateTime, StringFormat={}{0:dd MMM H:mm:ss}}" />
+      </StackPanel>
+      <CheckBox Grid.Column="1" Grid.Row="1" Margin="5" IsChecked="{Binding IsImprovementAlert}">
+        <TextBlock Text="Alert on improvement" Margin="0"/>
+      </CheckBox>
+      <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="2" HorizontalAlignment="Right">
+        <CheckBox Grid.Column="0" Grid.Row="7" Content="if more than:" x:Name="cbMoreThan"
+                  IsEnabled="{Binding IsImprovementAlert}"
+                  IsChecked="{Binding IsAlertWhenMoreChecked}" VerticalContentAlignment="Center" 
+                  HorizontalAlignment="Right" />
+        <TextBox Text="{Binding AlertWhenMore, UpdateSourceTrigger=PropertyChanged}" VerticalAlignment="Center"
+                 IsEnabled="{Binding ElementName=cbMoreThan, Path=IsChecked}" Width="45"/>
+      </StackPanel>
+
+      <CheckBox Grid.Column="1" Grid.Row="4"  VerticalAlignment="Center" Margin="5" IsChecked="{Binding IsDepreciationAlert}">
+        <TextBlock Text="Alert on depreciation" Margin="0"/>
+      </CheckBox>
+      <StackPanel Grid.Column="1" Grid.Row="6"  VerticalAlignment="Bottom" HorizontalAlignment="Right" Orientation="Horizontal" Opacity="0.3">
+        <Image Width="20" Source="{StaticResource CopyLeft}"/>
+        <TextBlock Text="Gennady Maltsev, 2022-23"/>
+      </StackPanel>
+    </Grid>
+  </Grid>
+</Window>
