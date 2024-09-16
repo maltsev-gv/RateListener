@@ -14,7 +14,7 @@ namespace RateListener.Providers
         public async Task<RatesResponse> GetRatesResponse()
         {
             var ratesJson = await Url.GetStringAsync();
-            return ZippedJsonHelper.GetObjectFromString<RatesResponse>(ratesJson);
+            return JsonHelper.GetObjectFromString<RatesResponse>(ratesJson);
         }
     }
 }

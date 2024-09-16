@@ -163,12 +163,9 @@ namespace RateListener.ExtensionMethods
             return includeNumber ? $"{number} {result}" : $"{result}";
         }
 
-        public static string RateToDisplay(this double effRate, bool isPrecise = false)
-        {
-            return
-                isPrecise
+        public static string RateToDisplay(this double effRate, bool isPrecise = false) =>
+            isPrecise
                 ? effRate < 1 ? $"{1.0 / effRate:N5}" : $"{effRate:N5}"
                 : effRate < 1 ? $"{1.0 / effRate:N2}" : $"{effRate:N2}";
-        }
     }
 }

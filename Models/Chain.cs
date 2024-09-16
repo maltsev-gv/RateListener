@@ -31,7 +31,6 @@ namespace RateListener.Models
         {
             get
             {
-                var ci = CultureInfo.CurrentCulture;
                 var sb = new StringBuilder($"{EffectiveRate.RateToDisplay()}: ");
                 sb.Append($"{Links[0].From}");
                 foreach (var link in Links)

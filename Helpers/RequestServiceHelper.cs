@@ -83,7 +83,7 @@ namespace RateListener.Helpers
                 headers?.ForEach(pair => client.DefaultRequestHeaders.Add(pair.Key, pair.Value));
                 HttpContent httpContent;
 
-                httpContent = new StringContent(ZippedJsonHelper.GetSerializedString(model));
+                httpContent = new StringContent(JsonHelper.GetSerializedString(model));
                 httpContent.Headers.ContentType = MediaTypeHeaderValue.Parse("application/json");
 
                 var httpResponse = await client.PostAsync(url, httpContent).ConfigureAwait(false);
