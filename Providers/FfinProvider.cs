@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 using Flurl.Http;
 using RateListener.Helpers;
 using RateListener.Models;
@@ -14,7 +15,9 @@ namespace RateListener.Providers
         public async Task<RatesResponse> GetRatesResponse()
         {
             var ratesJson = await Url.GetStringAsync();
-            return JsonHelper.GetObjectFromString<RatesResponse>(ratesJson);
+            var response = JsonHelper.GetObjectFromString<RatesResponse>(ratesJson);
+            response.Received = DateTime.UtcNow;
+            return response;
         }
     }
 }

@@ -33,7 +33,8 @@ namespace RateListener.ViewModels
         }
 
         private void StoreSettings() =>
-            ConfigHelper.SaveSettings(this);
+            RunInMainThread(() =>
+                ConfigHelper.SaveSettings(this));
 
         // ReSharper disable once AsyncVoidMethod
         private async void _timer_Tick(object? sender, EventArgs e)
@@ -44,8 +45,9 @@ namespace RateListener.ViewModels
         private async Task UpdateData()
         {
             await ReceiveRatesAsync();
-            FindChains();
-            RaiseAll();
+            OverviewViewModel.Listeners
+                .Where(l => l.SelectedBankProvider is not null && l.SelectedBankProvider.Name == SelectedBankProvider?.Name)
+                .ForEach(l => l.RaiseAll());
         }
 
         private async Task ReceiveRatesAsync()
@@ -60,16 +62,26 @@ namespace RateListener.ViewModels
             RatesResponse ratesResponse;
             var provider = SelectedBankProvider.RatesProvider;
 
+            var cachedResponse = CacheHelper.GetCachedResponse(provider);
             try
             {
-                ratesResponse = await provider.GetRatesResponse();
+                ratesResponse = cachedResponse ??
+                                await provider.GetRatesResponse();
+                ErrorMessage = string.Empty;
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"Error getting rates: {ex.Message}", "Rate listener", MessageBoxButton.OK,
-                    MessageBoxImage.Error, MessageBoxResult.OK, options: MessageBoxOptions.DefaultDesktopOnly);
+                Logger.Log($"Error getting rates: {ex}");
+                ErrorMessage = ex.Message;
+                ErrorMessageFull = ex.ToString();
                 return;
             }
+
+            if (cachedResponse == null)
+            {
+                CacheHelper.StoreResponse(provider, ratesResponse);
+            }
+
             RunInMainThread(() =>
             {
                 Rates.Clear();
@@ -86,50 +98,86 @@ namespace RateListener.ViewModels
 
                 FindChains();
                 RaiseAll();
+                StoreSettings();
             });
             IsReceiving = false;
         }
 
-        private List<Chain> chainList = new();
-        private string prevCurrencies = string.Empty;
+        public string ErrorMessage
+        {
+            get => GetVal<string>();
+            set => SetVal(value, () => RaisePropertyChanged(nameof(Success)));
+        }
+        
+        public string ErrorMessageFull
+        {
+            get => GetVal<string>(string.Empty);
+            set => SetVal(value);
+        }
+        
+        public bool Success => ErrorMessage.IsNullOrEmpty();
 
-        private double FindChains(bool getInversedRate = false)
+        private List<Chain> chainList = [];
+        private string prevCurrencies = string.Empty;
+        private readonly object locker = new();
+
+        public double FindChains(bool getInversedRate = false)
         {
             if (Rates.Count == 0 || SearchFromCurr.IsNullOrEmpty() || SearchToCurr.IsNullOrEmpty() || SearchFromCurr == SearchToCurr)
             {
                 return 0;
             }
 
-            bool isCurrChanged = prevCurrencies.IsFilled() && prevCurrencies != $"{SearchFromCurr}_{SearchToCurr}";
-            prevCurrencies = $"{SearchFromCurr}_{SearchToCurr}";
-
-            var oldList = chainList.ToList();
-            chainList.Clear();
-            foreach (var rate in Rates.Where(r => r.IsCurrUsed(getInversedRate ? SearchToCurr : SearchFromCurr)))
+            bool isCurrChanged;
+            double bestRate;
+            lock (locker)
             {
-                var chain = new List<ChainLink>();
-                FindChain(getInversedRate ? SearchToCurr : SearchFromCurr,
-                          getInversedRate ? SearchFromCurr : SearchToCurr, 
-                          rate, Rates.Where(r => r != rate).ToList(), chain);
-                if (chain.LastOrDefault()?.To == (getInversedRate ? SearchFromCurr : SearchToCurr))
+                isCurrChanged = prevCurrencies.IsFilled() && prevCurrencies != $"{SearchFromCurr}_{SearchToCurr}";
+                prevCurrencies = $"{SearchFromCurr}_{SearchToCurr}";
+
+                var oldList = chainList.ToList();
+                chainList.Clear();
+                foreach (var rate in Rates.Where(r => r.IsCurrUsed(getInversedRate
+                             ? SearchToCurr
+                             : SearchFromCurr)))
                 {
-                    chainList.Add(new Chain(chain));
+                    var chain = new List<ChainLink>();
+                    FindChain(getInversedRate
+                            ? SearchToCurr
+                            : SearchFromCurr,
+                        getInversedRate
+                            ? SearchFromCurr
+                            : SearchToCurr,
+                        rate,
+                        Rates.Where(r => r != rate)
+                            .ToList(),
+                        chain);
+                    if (chain.LastOrDefault()
+                            ?.To ==
+                        (getInversedRate
+                            ? SearchFromCurr
+                            : SearchToCurr))
+                    {
+                        chainList.Add(new Chain(chain));
+                    }
                 }
-            }
 
-            chainList = chainList.OrderByDescending(c => c.EffectiveRate).ToList();
-            var bestRate = chainList.FirstOrDefault()?.EffectiveRate ?? 0;
+                chainList = chainList.OrderByDescending(c => c.EffectiveRate)
+                    .ToList();
+                bestRate = chainList.FirstOrDefault()?.EffectiveRate 
+                               ?? 0;
 
-            if (getInversedRate)
-            {
-                chainList = oldList.ToList();
-                return bestRate;
+                if (getInversedRate)
+                {
+                    chainList = oldList.ToList();
+                    return bestRate;
+                }
             }
 
             RunInMainThread(() =>
             {
                 Chains.Clear();
-                chainList.ForEach(c => Chains.Add(c));
+                chainList.ToArray().ForEach(c => Chains.Add(c));
             });
 
             if (!isCurrChanged && LastEffectiveRate != 0.0)
@@ -267,7 +315,7 @@ namespace RateListener.ViewModels
 
         public string BuyingToDisplay =>
             FromCurrCalculated.IsFilled() && BuyingAmount != "0"
-                ? $"{BuyingAmount} => {FromCurrCalculated}"
+                ? $"{FromCurrCalculated} => {BuyingAmount}"
                 : string.Empty;
         
         public double FromFeeCalculated { get; private set; }
@@ -301,7 +349,8 @@ namespace RateListener.ViewModels
                 ? $"{SellingAmount} => {ToCurrCalculated}"
                 : string.Empty;
 
-        private double LastEffectiveRate
+        // ReSharper disable once MemberCanBePrivate.Global : used in Json deserialization 
+        public double LastEffectiveRate
         {
             get => GetVal<double>(-1.0);
             set
@@ -312,25 +361,12 @@ namespace RateListener.ViewModels
                     RaisePropertyChanged(nameof(LastOptimum));
                     RaisePropertyChanged(nameof(LastOptimumPrecised));
                     StoreSettings();
-                    var logMessage = $"{SearchFromCurr} => {SearchToCurr}: {LastOptimum}";
-                    InverseRate = FindChains(true);
-                    if (InverseRate > 0)
-                    {
-                        logMessage += $"; {SearchToCurr} => {SearchFromCurr}: {InverseRate.RateToDisplay()}";
-                    }
-                    Logger.Log(logMessage);
                 }
             }
         }
 
         public string RateToDisplay => 
             LastEffectiveRate.RateToDisplay();
-
-        private double InverseRate
-        {
-            get => GetVal<double>();
-            set => SetVal(value, StoreSettings);
-        }
 
         public string LastOptimum => LastEffectiveRate.RateToDisplay();
         public string LastOptimumPrecised => LastEffectiveRate.RateToDisplay(true);
@@ -432,10 +468,25 @@ namespace RateListener.ViewModels
             set => SetVal(value, StoreSettings);
         }
 
+        public string BankProviderName
+        {
+            get => GetVal<string>();
+            set => SetVal(value, 
+                () => SelectedBankProvider = BankProvider.SupportedBankProviders.FirstOrDefault(bp => bp.Name == value));
+        }
+
         public BankProvider? SelectedBankProvider
         {
             get => GetVal<BankProvider>();
-            set => SetVal(value, StartListening);
+            set => SetVal(value, () =>
+            {
+                if (value != null)
+                {
+                    BankProviderName = value.Name;
+                    StartListening();
+                    StoreSettings();
+                }
+            });
         }
 
         public Guid Id { get; set; } = Guid.NewGuid();
@@ -452,6 +503,8 @@ namespace RateListener.ViewModels
             RaisePropertyChanged(nameof(ToCurrCalculated));
             RaisePropertyChanged(nameof(SellingToDisplay));
             RaisePropertyChanged(nameof(ToFeeCalculated));
+
+            RaisePropertyChanged(nameof(Direction));
         }
     }
 }

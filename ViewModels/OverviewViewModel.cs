@@ -35,15 +35,17 @@ public class OverviewViewModel : ViewModelBase
         }
         catch (Exception e)
         {
+            var message = $"Loading configuration failed: {e.Message}"; 
+            Logger.Log(message);
             // RunInMainThread(() =>
-            //     MessageBox.Show($"Loading configuration failed: {e.Message}", "Error", MessageBoxButton.OK));
+            //     MessageBox.Show(message, "Error", MessageBoxButton.OK));
         }
     }
 
     public ICommand AddCommand { get; }
     public ICommand DeleteCommand { get; }
 
-    public ObservableCollection<ListenerSettingsViewModel> Listeners { get; } = [];
+    public static ObservableCollection<ListenerSettingsViewModel> Listeners { get; } = [];
 
     public ListenerSettingsViewModel SelectedListener 
     {

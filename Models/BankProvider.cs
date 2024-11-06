@@ -5,13 +5,13 @@ namespace RateListener.Models
 {
     public class BankProvider
     {
-        public BankProvider(IRatesProvider ratesProvider)
+        private BankProvider(IRatesProvider ratesProvider)
         {
             RatesProvider = ratesProvider;
         }
 
         public string Name => RatesProvider.Name;
-
+        
         public IRatesProvider RatesProvider { get; set; }
         
         public static List<BankProvider> SupportedBankProviders { get; } = new()

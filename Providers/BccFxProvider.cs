@@ -11,7 +11,7 @@ namespace RateListener.Providers
 {
     internal class BccFxProvider : IRatesProvider
     {
-        protected virtual bool InvertedBuyAndSellRates => true;
+        protected virtual bool InvertedBuyAndSellRates => false;
         public virtual string Name => "Center Credit (FX)";
         public virtual string Url => Properties.Resources.ResourceManager.GetString("BccFxProviderUrlHtml");
 
@@ -21,7 +21,10 @@ namespace RateListener.Providers
             var doc = new HtmlDocument();
             doc.LoadHtml(html);
 
-            var ratesResponse = new RatesResponse();
+            var ratesResponse = new RatesResponse()
+            {
+                Received = DateTime.UtcNow
+            };
             var rateNodes = FindRateNodes(doc);
             var regex = new Regex(@"([\d\.\,])*");
             var rates = new List<Rate>();
@@ -40,8 +43,8 @@ namespace RateListener.Providers
             ratesResponse.Data = new RateContainer
             {
                 Mobile = rates.ToArray(),
-                Cash = Array.Empty<Rate>(),
-                Non_Cash = Array.Empty<Rate>(),
+                Cash = [],
+                Non_Cash = [],
             };
             return ratesResponse;
         }
@@ -49,15 +52,10 @@ namespace RateListener.Providers
         protected virtual HtmlNode[] FindRateNodes(HtmlDocument doc)
         {
             var mobileFxNode = doc.DocumentNode
-                .SelectSingleNode(@".//div[contains(@class,'text-big') and .//div[contains(text(),'Валюта')]  and .//div[contains(text(),'Купить')]]")
+                .SelectSingleNode(@".//div[contains(@class,'text-lg') and .//div[contains(text(),'Валюта')]  and .//div[contains(text(),'Купить')]]")
                 .SelectSingleNode(@".//div[contains(@class,'p-4')]");
             var rateNodes = mobileFxNode.SelectNodes(@".//div[contains(@class,'exchange-card-list')]").ToArray();
             return rateNodes;
         }
     }
-    /*
-            var mobileFxNode = doc.DocumentNode
-                .SelectSingleNode(@".//div[contains(@class,'exchange-card') and .//div[contains(text(),'bcc.kz')]]");
-            var rateNodes = mobileFxNode.SelectNodes(@".//div[contains(@class,'exchange-card-list') and .//div[contains(@class,'items-center')]]").ToArray();
-     */
 }

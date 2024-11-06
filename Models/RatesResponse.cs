@@ -1,4 +1,6 @@
-﻿namespace RateListener.Models
+﻿using System;
+
+namespace RateListener.Models
 {
     public class RatesResponse
     {
@@ -6,6 +8,7 @@
         
         public string Message { get; set; }
 
+        public DateTime Received { get; set; }
         public RateContainer Data { get; set; }
     }
 
