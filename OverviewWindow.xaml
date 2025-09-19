@@ -23,10 +23,15 @@
         <ListView Grid.Row="0" ItemsSource="{Binding Listeners}" Margin="5" SelectedItem="{Binding SelectedListener}">
             <ListView.View>
                 <GridView d:DataContext="{d:DesignInstance {x:Type viewModels:ListenerSettingsViewModel}}">
-                    <GridViewColumn Header="Bank" Width="135">
+                    <GridViewColumn Header="Bank" Width="165">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding SelectedBankProvider, Path=SelectedBankProvider.Name}"></TextBlock>
+                                <Grid Width="150">
+                                    <TextBlock Text="{Binding BankProviderName}" HorizontalAlignment="Left"/>
+                                    <Button Content="&#x1F30D;" Margin="1" Padding="1" HorizontalAlignment="Right"
+                                            Background="Transparent" BorderThickness="0"
+                                            Command="{Binding OpenLinkCommand}"/>
+                                </Grid>
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>

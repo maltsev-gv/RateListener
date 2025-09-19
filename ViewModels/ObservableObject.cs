@@ -1,5 +1,6 @@
 ﻿using RateListener.ExtensionMethods;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
@@ -55,13 +56,13 @@ namespace RateListener.ViewModels
             }
 
             PropertyChanged(this, new PropertyChangedEventArgs(propertyName));
-            if (!string.IsNullOrEmpty(propertyName) && !_propDict.ContainsKey(propertyName))
+            if (!string.IsNullOrEmpty(propertyName) && !propDict.ContainsKey(propertyName))
             {
                 var pi = GetType().GetProperty(propertyName,
                     BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
                 if (pi != null)
                 {
-                    _propDict[propertyName] = pi.GetValue(this, null);
+                    propDict[propertyName] = pi.GetValue(this, null);
                 }
                 else
                 {
@@ -72,7 +73,7 @@ namespace RateListener.ViewModels
             {
                 if (!string.IsNullOrEmpty(propertyName))
                 {
-                    object propVal = _propDict[propertyName];
+                    object propVal = propDict[propertyName];
                     string strVal = propVal == null
                         ? "null"
                         : $"{propVal}, hash = {propVal.GetHashCode()}";
@@ -119,39 +120,41 @@ namespace RateListener.ViewModels
             return property.Name;
         }
 
-        private readonly Dictionary<string, object> _propDict = new Dictionary<string, object>();
+        private readonly ConcurrentDictionary<string, object> propDict = [];
         protected PropType GetVal<PropType>(object initValue = null, [CallerMemberName] string propName = null)
         {
-            if (_propDict.ContainsKey(propName))
+            if (propDict.ContainsKey(propName))
             {
-                return (PropType)_propDict[propName];
+                return (PropType)propDict[propName];
             }
 
             if (initValue != null)
             {
-                _propDict[propName] = initValue;
-                return (PropType)_propDict[propName];
+                propDict[propName] = initValue;
+                return (PropType)propDict[propName];
             }
 
             var initValAttr = GetType().GetProperty(propName)?.GetCustomAttribute<InitialValueAttribute>();
             if (initValAttr != null)
             {
-                _propDict[propName] = initValAttr.InitialValue;
+                propDict[propName] = initValAttr.InitialValue;
             }
             else
             {
-                _propDict[propName] = default(PropType);
+                propDict[propName] = default(PropType);
             }
-            return (PropType)_propDict[propName];
+            return (PropType)propDict[propName];
         }
 
         protected bool SetVal(object newVal, Action actionAfter = null, [CallerMemberName] string propName = null)
         {
-            if (_propDict.ContainsKey(propName) && _propDict[propName] != null && _propDict[propName].Equals(newVal))
+            if (propDict.ContainsKey(propName) && propDict[propName] != null && propDict[propName].Equals(newVal))
             {
                 return false;
             }
-            _propDict[propName] = newVal;
+
+            var isChanged = !propDict.TryGetValue(propName, out var oldVal) || oldVal != newVal; 
+            propDict[propName] = newVal;
             RaisePropertyChanged(propName);
             actionAfter?.Invoke();
             return true;
@@ -159,11 +162,11 @@ namespace RateListener.ViewModels
 
         protected bool SetInitialVal(object initVal, [CallerMemberName] string propName = null)
         {
-            if (_propDict.ContainsKey(propName))
+            if (propDict.ContainsKey(propName))
             {
                 return false;
             }
-            _propDict[propName] = initVal;
+            propDict[propName] = initVal;
             return true;
         }
 
@@ -198,18 +201,18 @@ namespace RateListener.ViewModels
             }
 
             var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public);
-            props.Where(p => p.CanWrite && (!silentPropertySet || !_propDict.ContainsKey(p.Name)))
+            props.Where(p => p.CanWrite && (!silentPropertySet || !propDict.ContainsKey(p.Name)))
                 .ForEach(p => p.SetValue(destClass, p.GetValue(this)));
             if (silentPropertySet)
             {
-                _propDict.ForEach(kvp => destClass._propDict[kvp.Key] = kvp.Value);
+                propDict.ForEach(kvp => destClass.propDict[kvp.Key] = kvp.Value);
             }
         }
 
         public override string ToString()
         {
             var sb = new StringBuilder();
-            foreach (var o in _propDict.Values)
+            foreach (var o in propDict.Values)
             {
                 sb.Append(o == null ? "null; " : $"{o}; ");
             }

@@ -6,6 +6,7 @@ using RateListener.Service;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -475,6 +476,33 @@ namespace RateListener.ViewModels
                 () => SelectedBankProvider = BankProvider.SupportedBankProviders.FirstOrDefault(bp => bp.Name == value));
         }
 
+        public string BankProviderLink
+        {
+            get => GetVal<string>();
+            set => SetVal(value);
+        }
+        
+        public ICommand OpenLinkCommand => new RelayCommand(OpenLinkMethod);
+
+        private void OpenLinkMethod(object obj)
+        {
+            var psi = new ProcessStartInfo
+            {
+                FileName = "cmd",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+
+            var process = new Process { StartInfo = psi };
+            process.Start();
+
+            process.StandardInput.WriteLine($"start {BankProviderLink}");
+            process.StandardInput.Close();        
+        }
+
         public BankProvider? SelectedBankProvider
         {
             get => GetVal<BankProvider>();
@@ -483,6 +511,7 @@ namespace RateListener.ViewModels
                 if (value != null)
                 {
                     BankProviderName = value.Name;
+                    BankProviderLink = value.RatesProvider.Url;
                     StartListening();
                     StoreSettings();
                 }
