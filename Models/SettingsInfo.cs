@@ -16,6 +16,8 @@ public class SettingsInfo
     public bool IsDepreciationAlert { get; set; }
     public bool IsAlertWhenMoreChecked { get; set; }
     public string AlertWhenMore { get; set; }
+    public bool IsAlertWhenLessChecked { get; set; }
+    public string AlertWhenLess { get; set; }
     public double LastEffectiveRate { get; set; }
     public string SellingAmount { get; set; }
     public string BuyingAmount { get; set; }

@@ -35,6 +35,7 @@
 
         <BitmapImage x:Key="CopyLeft" UriSource="CopyLeft.png" />
         <BitmapImage x:Key="ForthAndBack" UriSource="rows-forth-and-back.png" />
+        <BitmapImage x:Key="Update" UriSource="Update.png" />
 
     </Application.Resources>
 </Application>

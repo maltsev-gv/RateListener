@@ -25,6 +25,7 @@
   <ItemGroup>
     <Resource Include="Copyleft.png" />
     <Resource Include="rows-forth-and-back.png" />
+    <Resource Include="Update.png" />
   </ItemGroup>
 
   <ItemGroup>

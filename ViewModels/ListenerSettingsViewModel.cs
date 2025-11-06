@@ -21,27 +21,25 @@ namespace RateListener.ViewModels
         public ListenerSettingsViewModel()
         {
             ExchangeCurrenciesCommand = new RelayCommand(ExchangeCurrencies);
+            UpdateCommand = new RelayCommand(UpdateMethod);
             timer.Interval = TimeSpan.FromMinutes(1);
             timer.Tick += _timer_Tick;
             timer.Start();
 
             StartListening();
         }
+        private void UpdateMethod(object obj) =>
+            _ = UpdateData();
 
-        private void ExchangeCurrencies(object obj)
-        {
+        private void ExchangeCurrencies(object obj) =>
             (SearchToCurr, SearchFromCurr) = (SearchFromCurr, SearchToCurr);
-        }
 
         private void StoreSettings() =>
             RunInMainThread(() =>
                 ConfigHelper.SaveSettings(this));
 
-        // ReSharper disable once AsyncVoidMethod
-        private async void _timer_Tick(object? sender, EventArgs e)
-        {
-            await UpdateData();
-        }
+        private void _timer_Tick(object? sender, EventArgs e) =>
+            _ = UpdateData();
 
         private async Task UpdateData()
         {
@@ -183,12 +181,13 @@ namespace RateListener.ViewModels
 
             if (!isCurrChanged && LastEffectiveRate != 0.0)
             {
-                if (IsImprovementAlert && bestRate > LastEffectiveRate
-                    && (!IsAlertWhenMoreChecked || ParseDouble(AlertWhenMore, out var alertWhenMore) && bestRate > alertWhenMore))
+                if (IsImprovementAlert && bestRate > LastEffectiveRate && 
+                    (!IsAlertWhenMoreChecked || ParseDouble(AlertWhenMore, out var alertWhenMore) && bestRate > alertWhenMore))
                 {
                     ShowNewOptimumWindow(LastEffectiveRate.RateToDisplay(), bestRate.RateToDisplay(), "improved");
                 }
-                if (IsDepreciationAlert && bestRate < LastEffectiveRate)
+                if (IsDepreciationAlert && bestRate < LastEffectiveRate && 
+                    (!IsAlertWhenLessChecked || ParseDouble(AlertWhenLess, out var alertWhenLess) && bestRate < alertWhenLess))
                 {
                     ShowNewOptimumWindow(LastEffectiveRate.RateToDisplay(), bestRate.RateToDisplay(), "depreciated");
                 }
@@ -259,9 +258,10 @@ namespace RateListener.ViewModels
         }
 
         public ICommand ExchangeCurrenciesCommand { get; }
-        public ObservableCollection<Rate> Rates { get; } = new();
-        public ObservableCollection<Chain> Chains { get; } = new();
-        public ObservableCollection<string> Currencies { get; } = new();
+        public ICommand UpdateCommand { get; }
+        public ObservableCollection<Rate> Rates { get; } = [];
+        public ObservableCollection<Chain> Chains { get; } = [];
+        public ObservableCollection<string> Currencies { get; } = [];
 
         private readonly DispatcherTimer timer = new();
 
@@ -463,7 +463,19 @@ namespace RateListener.ViewModels
             set => SetVal(value, StoreSettings);
         }
 
+        public bool IsAlertWhenLessChecked
+        {
+            get => GetVal<bool>();
+            set => SetVal(value, StoreSettings);
+        }
+
         public string AlertWhenMore
+        {
+            get => GetVal<string>();
+            set => SetVal(value, StoreSettings);
+        }
+
+        public string AlertWhenLess
         {
             get => GetVal<string>();
             set => SetVal(value, StoreSettings);
@@ -472,11 +484,11 @@ namespace RateListener.ViewModels
         public string BankProviderName
         {
             get => GetVal<string>();
-            set => SetVal(value, 
+            private set => SetVal(value, 
                 () => SelectedBankProvider = BankProvider.SupportedBankProviders.FirstOrDefault(bp => bp.Name == value));
         }
 
-        public string BankProviderLink
+        private string BankProviderLink
         {
             get => GetVal<string>();
             set => SetVal(value);
@@ -522,7 +534,7 @@ namespace RateListener.ViewModels
         
         public List<BankProvider> SupportedBankProviders => 
             BankProvider.SupportedBankProviders;
-        
+
         private void RaiseAll()
         {
             RaisePropertyChanged(nameof(FromCurrCalculated));

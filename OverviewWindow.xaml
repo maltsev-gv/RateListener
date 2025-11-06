@@ -134,9 +134,7 @@
                     <Button Grid.Column="1" Grid.Row="1" Width="20" Height="20"
                             Command="{Binding ExchangeCurrenciesCommand}" BorderThickness="0"
                             Padding="0" Background="Transparent">
-                        <Border CornerRadius="7" Background="AliceBlue">
                             <Image Source="{StaticResource ForthAndBack}" />
-                        </Border>
                     </Button>
                     <ComboBox Grid.Column="2" Grid.Row="1" ItemsSource="{Binding Currencies}"
                               SelectedItem="{Binding SearchToCurr}" />
@@ -209,11 +207,6 @@
                     </Grid.RowDefinitions>
                     <ListBox Grid.Column="0" Grid.RowSpan="7" ItemsSource="{Binding Rates}" />
 
-                    <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="5" VerticalAlignment="Bottom"
-                                HorizontalAlignment="Right" Margin="5,0">
-                        <TextBlock Text="Updated:" Margin="0" />
-                        <TextBlock Text="{Binding LastUpdateTime, StringFormat={}{0:dd MMM H:mm:ss}}" />
-                    </StackPanel>
                     <CheckBox Grid.Column="1" Grid.Row="1" Margin="5" IsChecked="{Binding IsImprovementAlert}">
                         <TextBlock Text="Alert on improvement" Margin="0" />
                     </CheckBox>
@@ -231,6 +224,23 @@
                               IsChecked="{Binding IsDepreciationAlert}">
                         <TextBlock Text="Alert on depreciation" Margin="0" />
                     </CheckBox>
+                    <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="5" HorizontalAlignment="Right">
+                        <CheckBox Content="if less than:" x:Name="cbLessThan"
+                                  IsEnabled="{Binding IsDepreciationAlert}"
+                                  IsChecked="{Binding IsAlertWhenLessChecked}" VerticalContentAlignment="Center"
+                                  HorizontalAlignment="Right" />
+                        <TextBox Text="{Binding AlertWhenLess, UpdateSourceTrigger=PropertyChanged}"
+                                 VerticalAlignment="Center"
+                                 IsEnabled="{Binding ElementName=cbLessThan, Path=IsChecked}" Width="45" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="6" VerticalAlignment="Bottom"
+                                HorizontalAlignment="Left" Margin="5,0">
+                        <TextBlock Text="Updated:" Margin="0,5" />
+                        <TextBlock Text="{Binding LastUpdateTime, StringFormat={}{0:dd MMM H:mm:ss}}" />
+                        <Button Padding="0" Margin="1" BorderThickness="0" Background="Transparent" Width="20" Command="{Binding UpdateCommand}">
+                            <Image Source="{StaticResource Update}"></Image>
+                        </Button>
+                    </StackPanel>
                     <StackPanel Grid.Column="1" Grid.Row="6" VerticalAlignment="Bottom" HorizontalAlignment="Right"
                                 Orientation="Horizontal" Opacity="0.3">
                         <Image Width="20" Source="{StaticResource CopyLeft}" />
