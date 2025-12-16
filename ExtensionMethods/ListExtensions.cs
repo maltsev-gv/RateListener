@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using RateListener.ExtensionMethods;
 
 namespace RateListener.ExtensionMethods
 {
@@ -52,14 +51,10 @@ namespace RateListener.ExtensionMethods
             return source;
         }
 
-        public static List<T> ToList<T>(this ICollection source)
-        {
-            return new List<T>(source.OfType<T>());
-        }
+        public static List<T> ToList<T>(this ICollection source) =>
+            new(source.OfType<T>());
 
-        public static T[] ToArray<T>(this ICollection source)
-        {
-            return source?.OfType<T>().ToArray();
-        }
+        public static T[] ToArray<T>(this ICollection source) =>
+            source?.OfType<T>().ToArray();
     }
 }

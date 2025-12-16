@@ -126,4 +126,7 @@
   <data name="FfinProviderUrlJson" xml:space="preserve">
     <value>https://bankffin.kz/api/exchange-rates/getRates</value>
   </data>
+  <data name="CifraBankProviderUrlJson" xml:space="preserve">
+    <value>https://cifra-bank.ru/ajax/cfrRates.php</value>
+  </data>
 </root>

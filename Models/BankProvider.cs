@@ -19,6 +19,7 @@ namespace RateListener.Models
             new BankProvider(new FfinProvider()),
             new BankProvider(new BccFxProvider()),
             new BankProvider(new BccStableProvider()),
+            new BankProvider(new CifraBankProvider()),
         };
     }
 }

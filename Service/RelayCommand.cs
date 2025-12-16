@@ -1,33 +1,19 @@
 ﻿using System;
 using System.Windows.Input;
 
-namespace RateListener.Service
+namespace RateListener.Service;
+
+public class RelayCommand(Action<object> execute, Func<object, bool> canExecute = null) : ICommand
 {
-    public class RelayCommand : ICommand
+    public event EventHandler CanExecuteChanged
     {
-        private Action<object> execute;
-        private Func<object, bool> canExecute;
-
-        public event EventHandler CanExecuteChanged
-        {
-            add { CommandManager.RequerySuggested += value; }
-            remove { CommandManager.RequerySuggested -= value; }
-        }
-
-        public RelayCommand(Action<object> execute, Func<object, bool> canExecute = null)
-        {
-            this.execute = execute;
-            this.canExecute = canExecute;
-        }
-
-        public bool CanExecute(object parameter)
-        {
-            return canExecute == null || canExecute(parameter);
-        }
-
-        public void Execute(object parameter)
-        {
-            execute(parameter);
-        }
+        add => CommandManager.RequerySuggested += value;
+        remove => CommandManager.RequerySuggested -= value;
     }
+
+    public bool CanExecute(object parameter) =>
+        canExecute == null || canExecute(parameter);
+
+    public void Execute(object parameter) =>
+        execute(parameter);
 }

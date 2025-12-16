@@ -44,7 +44,7 @@ namespace RateListener.Providers
             {
                 Mobile = rates.ToArray(),
                 Cash = [],
-                Non_Cash = [],
+                NonCash = [],
             };
             return ratesResponse;
         }

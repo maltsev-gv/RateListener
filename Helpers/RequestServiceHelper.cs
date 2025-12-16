@@ -7,11 +7,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
-using System.Threading;
 using System.Threading.Tasks;
-using System.Xml;
-using System.Xml.Serialization;
-using Newtonsoft.Json;
 using RateListener.ExtensionMethods;
 
 namespace RateListener.Helpers

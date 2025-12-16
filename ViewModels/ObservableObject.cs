@@ -1,7 +1,6 @@
 ﻿using RateListener.ExtensionMethods;
 using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Linq.Expressions;
@@ -121,17 +120,15 @@ namespace RateListener.ViewModels
         }
 
         private readonly ConcurrentDictionary<string, object> propDict = [];
-        protected PropType GetVal<PropType>(object initValue = null, [CallerMemberName] string propName = null)
+        protected TPropType GetVal<TPropType>(object initValue = null, [CallerMemberName] string propName = null)
         {
-            if (propDict.ContainsKey(propName))
-            {
-                return (PropType)propDict[propName];
-            }
+            if (propDict.TryGetValue(propName!, out var value))
+                return (TPropType)value;
 
             if (initValue != null)
             {
                 propDict[propName] = initValue;
-                return (PropType)propDict[propName];
+                return (TPropType)propDict[propName];
             }
 
             var initValAttr = GetType().GetProperty(propName)?.GetCustomAttribute<InitialValueAttribute>();
@@ -141,34 +138,25 @@ namespace RateListener.ViewModels
             }
             else
             {
-                propDict[propName] = default(PropType);
+                propDict[propName] = default(TPropType);
             }
-            return (PropType)propDict[propName];
+            return (TPropType)propDict[propName];
         }
 
         protected bool SetVal(object newVal, Action actionAfter = null, [CallerMemberName] string propName = null)
         {
-            if (propDict.ContainsKey(propName) && propDict[propName] != null && propDict[propName].Equals(newVal))
-            {
+            if (propDict.ContainsKey(propName!) && propDict[propName] != null && propDict[propName].Equals(newVal))
                 return false;
-            }
 
-            var isChanged = !propDict.TryGetValue(propName, out var oldVal) || oldVal != newVal; 
+            _ = !propDict.TryGetValue(propName, out var oldVal) || oldVal != newVal; 
             propDict[propName] = newVal;
             RaisePropertyChanged(propName);
             actionAfter?.Invoke();
             return true;
         }
 
-        protected bool SetInitialVal(object initVal, [CallerMemberName] string propName = null)
-        {
-            if (propDict.ContainsKey(propName))
-            {
-                return false;
-            }
-            propDict[propName] = initVal;
-            return true;
-        }
+        protected bool SetInitialVal(object initVal, [CallerMemberName] string propName = null) =>
+            propDict.TryAdd(propName, initVal);
 
         protected bool SetValCustomized(object oldVal, object newVal, Action setter, [CallerMemberName] string propertyName = null)
         {

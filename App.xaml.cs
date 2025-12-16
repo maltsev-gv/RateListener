@@ -17,30 +17,6 @@ public partial class App
         base.OnStartup(e);
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
     }
-
-    private void TestMethod(string? text, object? testArg)
-    {
-        var stopwatch = Stopwatch.StartNew();
-        for (int i = 0; i < 100000; i++)
-        {
-            ThrowIfNull.Validate((nameof(text), text), (nameof(testArg), testArg));
-        }
-        stopwatch.Stop();
-        Console.WriteLine($"ThrowIfNull.Validate: {stopwatch.Elapsed.TotalMilliseconds} ms");
-        
-        stopwatch = Stopwatch.StartNew();
-        for (int i = 0; i < 100000; i++)
-        {
-            if (text is null)
-                throw new ArgumentNullException(nameof(text));
-            if (testArg is null)
-                throw new ArgumentNullException(nameof(testArg));
-        }
-        stopwatch.Stop();
-        Console.WriteLine($"if (text is null): {stopwatch.Elapsed.TotalMilliseconds} ms");
-        
-        var trimmed = text!.Trim();
-    }
 }
 
 public static class ThrowIfNull

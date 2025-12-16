@@ -1,8 +1,6 @@
-﻿using System.Windows;
+﻿namespace RateListener;
 
-namespace RateListener;
-
-public partial class OverviewWindow : Window
+public partial class OverviewWindow
 {
     public OverviewWindow()
     {

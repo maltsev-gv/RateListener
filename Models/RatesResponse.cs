@@ -16,7 +16,7 @@ namespace RateListener.Models
     { 
         public Rate[] Cash { get; set; }
         public Rate[] Mobile { get; set; }
-        public Rate[] Non_Cash { get; set; }
+        public Rate[] NonCash { get; set; }
     }
 
     public class Rate

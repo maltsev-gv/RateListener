@@ -17,7 +17,7 @@ public class OverviewViewModel : ViewModelBase
         Task.Run(LoadConfig);
     }
 
-    private void LoadConfig()
+    private static void LoadConfig()
     {
         try
         {

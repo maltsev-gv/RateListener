@@ -1,9 +1,5 @@
-﻿using RateListener.ExtensionMethods;
-using System;
-using System.Collections.Generic;
-using System.IO;
+﻿using System.Collections.Generic;
 using System.Linq;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -14,46 +10,32 @@ namespace RateListener.ExtensionMethods
         /// <summary>
         /// Эквивалент string.IsNullOrEmpty(inStr)
         /// </summary>
-        public static bool IsNullOrEmpty(this string inStr)
-        {
-            return string.IsNullOrEmpty(inStr);
-        }
+        public static bool IsNullOrEmpty(this string inStr) =>
+            string.IsNullOrEmpty(inStr);
 
         /// <summary>
         /// Эквивалент string.IsNullOrWhiteSpace(inStr)
         /// </summary>
-        public static bool IsNullOrWhiteSpace(this string inStr)
-        {
-            return string.IsNullOrWhiteSpace(inStr);
-        }
+        public static bool IsNullOrWhiteSpace(this string inStr) =>
+            string.IsNullOrWhiteSpace(inStr);
 
         /// <summary>
         /// Эквивалент !string.IsNullOrEmpty(inStr)
         /// </summary>
-        public static bool IsFilled(this string inStr)
-        {
-            return !string.IsNullOrEmpty(inStr);
-        }
+        public static bool IsFilled(this string inStr) =>
+            !string.IsNullOrEmpty(inStr);
 
-        public static bool IsFullMatch(this Regex regex, string value)
-        {
-            return regex.IsMatch(value) && regex.Matches(value)[0].Index == 0 && regex.Matches(value)[0].Length == value.Length;
-        }
+        public static bool IsFullMatch(this Regex regex, string value) =>
+            regex.IsMatch(value) && regex.Matches(value)[0].Index == 0 && regex.Matches(value)[0].Length == value.Length;
 
-        public static bool IsDigit(this char inChar)
-        {
-            return inChar >= '0' && inChar <= '9';
-        }
+        public static bool IsDigit(this char inChar) =>
+            inChar >= '0' && inChar <= '9';
 
-        public static string Formatted(this string inStr, params object[] args)
-        {
-            return string.Format(inStr, args);
-        }
+        public static string Formatted(this string inStr, params object[] args) =>
+            string.Format(inStr, args);
 
-        public static bool IsAllDigits(this string inStr)
-        {
-            return inStr.All(IsDigit);
-        }
+        public static bool IsAllDigits(this string inStr) =>
+            inStr.All(IsDigit);
 
         /// <summary>
         /// Удаляет все повторяющиеся запятые в строке, затем схлопывает повторяющиеся табы и пробелы до 1 пробела.
@@ -103,16 +85,14 @@ namespace RateListener.ExtensionMethods
             return sb.ToString();
         }
 
-        public static string JoinedString<T>(this IEnumerable<T> enumerable, string separator = ",")
-        {
-            return string.Join(separator, enumerable);
-        }
+        public static string JoinedString<T>(this IEnumerable<T> enumerable, string separator = ",") =>
+            string.Join(separator, enumerable);
 
-        private static readonly char[] _excludeChars = { ' ', '.', ',', ';', '-', '(', ')', '#', '+' };
+        private static readonly char[] ExcludeChars = { ' ', '.', ',', ';', '-', '(', ')', '#', '+' };
 
         public static string Last10PhoneDigits(this string phoneNumber)
         {
-            string newValue = new string(phoneNumber.Where(t => !_excludeChars.Contains(t)).ToArray());
+            string newValue = new string(phoneNumber.Where(t => !ExcludeChars.Contains(t)).ToArray());
             if (newValue.Length < 10)
             {
                 return string.Empty;
