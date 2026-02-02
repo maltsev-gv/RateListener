@@ -1,4 +1,6 @@
 ﻿using System;
+using Newtonsoft.Json;
+using RateListener.Helpers;
 
 namespace RateListener.Models
 {
@@ -13,17 +15,22 @@ namespace RateListener.Models
     }
 
     public class RateContainer
-    { 
-        public Rate[] Cash { get; set; }
-        public Rate[] Mobile { get; set; }
-        public Rate[] NonCash { get; set; }
+    {
+        public Rate[] Cash { get; set; } = [];
+        public Rate[] Mobile { get; set; } = [];
+        public Rate[] NonCash { get; set; } = [];
     }
 
     public class Rate
     {
         public string BuyCode { get; set; }
+        
         public string SellCode { get; set; }
+        
+        [JsonConverter(typeof(SpacedDoubleConverter))]
         public double BuyRate { get; set; }
+        
+        [JsonConverter(typeof(SpacedDoubleConverter))]
         public double SellRate { get; set; }
 
         public bool IsCurrUsed(string currency) => BuyCode == currency || SellCode == currency;

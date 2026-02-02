@@ -14,12 +14,12 @@ namespace RateListener.Models
         
         public IRatesProvider RatesProvider { get; set; }
         
-        public static List<BankProvider> SupportedBankProviders { get; } = new()
-        {
-            new BankProvider(new FfinProvider()),
-            new BankProvider(new BccFxProvider()),
-            new BankProvider(new BccStableProvider()),
-            new BankProvider(new CifraBankProvider()),
-        };
+        public static List<BankProvider> SupportedBankProviders { get; } =
+        [
+            new(new FfinProvider()),
+            new(new BccFxProvider()),
+            new(new BccStableProvider()),
+            new(new CifraBankProvider())
+        ];
     }
 }

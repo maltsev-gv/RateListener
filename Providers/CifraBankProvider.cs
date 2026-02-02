@@ -57,8 +57,6 @@ internal class CifraBankProvider : IRatesProvider
         ratesResponse.Data = new RateContainer
         {
             Mobile = rates.ToArray(),
-            Cash = [],
-            NonCash = [],
         };
         return ratesResponse;
         
