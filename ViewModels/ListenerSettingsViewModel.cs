@@ -12,7 +12,6 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Threading;
 
 namespace RateListener.ViewModels
 {
@@ -22,14 +21,12 @@ namespace RateListener.ViewModels
         {
             ExchangeCurrenciesCommand = new RelayCommand(ExchangeCurrencies);
             UpdateCommand = new RelayCommand(UpdateMethod);
-            timer.Interval = TimeSpan.FromMinutes(1);
-            timer.Tick += _timer_Tick;
-            timer.Start();
 
-            StartListening();
+            OverviewViewModel.RatesUpdated += UpdateUi;
         }
+        
         private void UpdateMethod(object obj) =>
-            _ = UpdateData();
+            _ = OverviewViewModel.FetchAllRatesAsync();
 
         private void ExchangeCurrencies(object obj) =>
             (SearchToCurr, SearchFromCurr) = (SearchFromCurr, SearchToCurr);
@@ -38,68 +35,37 @@ namespace RateListener.ViewModels
             RunInMainThread(() =>
                 ConfigHelper.SaveSettings(this));
 
-        private void _timer_Tick(object? sender, EventArgs e) =>
-            _ = UpdateData();
-
-        private async Task UpdateData()
+        private void UpdateUi()
         {
-            await ReceiveRatesAsync();
-            OverviewViewModel.Listeners
-                .Where(l => l.SelectedBankProvider is not null && l.SelectedBankProvider.Name == SelectedBankProvider?.Name)
-                .ForEach(l => l.RaiseAll());
-        }
-
-        private async Task ReceiveRatesAsync()
-        {
-            if (SelectedBankProvider == null)
-            {
-                return;
-            }
-
-            IsReceiving = true;
-            
-            RatesResponse ratesResponse;
-            var provider = SelectedBankProvider.RatesProvider;
-
-            var cachedResponse = CacheHelper.GetCachedResponse(provider);
-            try
-            {
-                ratesResponse = cachedResponse ??
-                                await provider.GetRatesResponse();
-                ErrorMessage = string.Empty;
-            }
-            catch (Exception ex)
-            {
-                Logger.Log($"Error getting rates: {ex}");
-                ErrorMessage = ex.Message;
-                ErrorMessageFull = ex.ToString();
-                return;
-            }
-
-            if (cachedResponse == null)
-            {
-                CacheHelper.StoreResponse(provider, ratesResponse);
-            }
-
             RunInMainThread(() =>
             {
+                if (SelectedBankProvider == null)
+                    return;
+                
+                var ratesResponse = CacheHelper.GetCachedResponse(SelectedBankProvider.RatesProvider);
+                if (ratesResponse == null)
+                {
+                    ErrorMessage = "Не удалось загрузить данные о курсах";
+                    Rates.Clear();
+                    return;
+                }
+                ErrorMessage = string.Empty;
                 Rates.Clear();
                 ratesResponse.Data.Mobile.OrderBy(r => r.ToString()).ForEach(c => Rates.Add(c));
 
                 if (Currencies.Count == 0)
                 {
                     Rates.SelectMany(r => new[] { r.BuyCode, r.SellCode })
-                         .Distinct()
-                         .OrderBy(s => s)
-                         .ToList()
-                         .ForEach(c => Currencies.Add(c));
+                        .Distinct()
+                        .OrderBy(s => s)
+                        .ToList()
+                        .ForEach(c => Currencies.Add(c));
                 }
 
                 FindChains();
                 RaiseAll();
                 StoreSettings();
             });
-            IsReceiving = false;
         }
 
         public string ErrorMessage
@@ -123,9 +89,7 @@ namespace RateListener.ViewModels
         public double FindChains(bool getInversedRate = false)
         {
             if (Rates.Count == 0 || SearchFromCurr.IsNullOrEmpty() || SearchToCurr.IsNullOrEmpty() || SearchFromCurr == SearchToCurr)
-            {
                 return 0;
-            }
 
             bool isCurrChanged;
             double bestRate;
@@ -148,17 +112,13 @@ namespace RateListener.ViewModels
                             ? SearchFromCurr
                             : SearchToCurr,
                         rate,
-                        Rates.Where(r => r != rate)
-                            .ToList(),
+                        Rates.Where(r => r != rate).ToList(),
                         chain);
-                    if (chain.LastOrDefault()
-                            ?.To ==
-                        (getInversedRate
-                            ? SearchFromCurr
-                            : SearchToCurr))
-                    {
+                    if (chain.LastOrDefault()?.To ==
+                            (getInversedRate
+                                ? SearchFromCurr
+                                : SearchToCurr))
                         chainList.Add(new Chain(chain));
-                    }
                 }
 
                 chainList = chainList.OrderByDescending(c => c.EffectiveRate)
@@ -197,7 +157,7 @@ namespace RateListener.ViewModels
             return bestRate;
         }
 
-        private void ShowNewOptimumWindow(string lastOptimum, string optimum, string changeType)
+        private static void ShowNewOptimumWindow(string lastOptimum, string optimum, string changeType)
         {
             MessageBox.Show($"New optimum found: {optimum} instead of {lastOptimum} ({changeType})", "Rate listener", MessageBoxButton.OK,
                 MessageBoxImage.Exclamation, MessageBoxResult.OK, options: MessageBoxOptions.DefaultDesktopOnly);
@@ -206,9 +166,7 @@ namespace RateListener.ViewModels
         private void FindChain(string from, string to, Rate baseRate, List<Rate> availableRates, List<ChainLink> chain)
         {
             if (from.IsNullOrEmpty() || to.IsNullOrEmpty())
-            {
                 return;
-            }
 
             var link = new ChainLink();
             if (baseRate.BuyCode == from)
@@ -224,34 +182,28 @@ namespace RateListener.ViewModels
                 link.Fx = 1.0 / baseRate.SellRate;
             }
             else
-            {
                 return;
-            }
+            
             availableRates = availableRates.ToList();
 
             link.Rate = baseRate;
             chain.Add(link);
             if (link.To == to)
-            {
                 return;
-            }
+            
             availableRates.RemoveAll(r => r == baseRate || r.IsCurrUsed(from));
             var existingChain = chain.ToList();
             var nextRates = availableRates.Where(r => !r.IsCurrUsed(from) && !r.IsCurrUsed(link.From) && r.IsCurrUsed(link.To)).ToArray();
             for (var i = 0; i < nextRates.Length; i++)
             {
                 if (i == 0)
-                {
                     FindChain(link.To, to, nextRates[0], availableRates, chain);
-                }
                 else
                 {
                     var newChain = existingChain.ToList();
                     FindChain(link.To, to, nextRates[i], availableRates, newChain);
                     if (newChain.Last().To == to)
-                    {
                         chainList.Add(new Chain(newChain));
-                    }
                 }
                 availableRates.Remove(nextRates[i]);
             }
@@ -262,20 +214,7 @@ namespace RateListener.ViewModels
         public ObservableCollection<Rate> Rates { get; } = [];
         public ObservableCollection<Chain> Chains { get; } = [];
         public ObservableCollection<string> Currencies { get; } = [];
-
-        private readonly DispatcherTimer timer = new();
-
-        public bool IsReceiving
-        {
-            get => GetVal<bool>();
-            set => SetVal(value);
-        }
-
-        private void StartListening()
-        {
-            Task.Run(UpdateData);
-        }
-
+        
         public string SellingAmount
         {
             get => GetVal<string>("0");
@@ -524,7 +463,6 @@ namespace RateListener.ViewModels
                 {
                     BankProviderName = value.Name;
                     BankProviderLink = value.RatesProvider.Url;
-                    StartListening();
                     StoreSettings();
                 }
             });

@@ -36,6 +36,9 @@ public static class ConfigHelper
 
     private static void TimerOnElapsed(object sender, ElapsedEventArgs e)
     {
+        if (OverviewViewModel.IsReceiving)
+            return;
+        
         try
         {
             lock (ConfigFile)
@@ -85,20 +88,14 @@ public static class ConfigHelper
     public static void SaveSettings(ListenerSettingsViewModel viewModel)
     {
         if (IsLoading)
-        {
             return;
-        }
 
         lock (ConfigFile)
         {
             if (!settingsToStore.TryGetValue(viewModel.Id, out var settings))
-            {
                 settingsToStore[viewModel.Id] = viewModel.Adapt<SettingsInfo>();
-            }
             else
-            {
                 viewModel.Adapt(settings);
-            }
 
             if (!ratesToStore.TryGetValue(viewModel.Id, out var ratesContainer))
             {

@@ -13,15 +13,11 @@ public class CacheHelper
     {
         if (ResponseCache.TryGetValue(provider, out var response) &&
             DateTime.UtcNow - response.Received < CacheDuration)
-        {
             return response;
-        }
 
         return null;
     }
 
-    public static void StoreResponse(IRatesProvider provider, RatesResponse response)
-    {
+    public static void StoreResponse(IRatesProvider provider, RatesResponse response) =>
         ResponseCache[provider] = response;
-    }
 }

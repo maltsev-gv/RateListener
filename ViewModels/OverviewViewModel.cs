@@ -5,6 +5,9 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using RateListener.Helpers;
 using RateListener.Service;
+using RateListener.Models;
+using RateListener.ExtensionMethods;
+using System.Windows.Threading;
 
 namespace RateListener.ViewModels;
 
@@ -16,7 +19,14 @@ public class OverviewViewModel : ViewModelBase
         DeleteCommand = new RelayCommand(DeleteListener);
         Task.Run(LoadConfig);
     }
-
+    
+    static OverviewViewModel()
+    {
+        timer.Interval = TimeSpan.FromMinutes(1);
+        timer.Tick += (sender, e) => _ = FetchAllRatesAsync();
+        timer.Start();
+    }
+    
     private static void LoadConfig()
     {
         try
@@ -24,12 +34,14 @@ public class OverviewViewModel : ViewModelBase
             var settings = ConfigHelper.LoadSettings();
             if (settings != null)
             {
-                RunInMainThread(() =>
+                RunInMainThread(void () =>
                 {
                     Listeners.Clear();
                     ConfigHelper.IsLoading = true;
                     settings.ForEach(si => Listeners.Add(si.ToViewModel()));
                     ConfigHelper.IsLoading = false;
+                    
+                    _ = FetchAllRatesAsync();
                 });
             }
         }
@@ -37,8 +49,6 @@ public class OverviewViewModel : ViewModelBase
         {
             var message = $"Loading configuration failed: {e.Message}"; 
             Logger.Log(message);
-            // RunInMainThread(() =>
-            //     MessageBox.Show(message, "Error", MessageBoxButton.OK));
         }
     }
 
@@ -46,6 +56,12 @@ public class OverviewViewModel : ViewModelBase
     public ICommand DeleteCommand { get; }
 
     public static ObservableCollection<ListenerSettingsViewModel> Listeners { get; } = [];
+
+    public static event Action? RatesUpdated;
+
+    public static bool IsReceiving { get; private set; }
+
+    private static readonly DispatcherTimer timer = new();
 
     public ListenerSettingsViewModel SelectedListener 
     {
@@ -66,6 +82,43 @@ public class OverviewViewModel : ViewModelBase
         {
             Listeners.Remove(SelectedListener);
             SelectedListener = Listeners.LastOrDefault();
+        }
+    }
+
+    public static async Task FetchAllRatesAsync()
+    {
+        if (IsReceiving)
+            return;
+
+        IsReceiving = true;
+
+        try
+        {
+            await BankProvider.SupportedBankProviders.ForEachAsync(async bankProvider =>
+            {
+                RatesResponse ratesResponse;
+                var ratesProvider = bankProvider.RatesProvider;
+
+                var cachedResponse = CacheHelper.GetCachedResponse(ratesProvider);
+                try
+                {
+                    ratesResponse = cachedResponse 
+                                    ?? await ratesProvider.GetRatesResponse();
+                }
+                catch (Exception ex)
+                {
+                    Logger.Log($"Error getting rates: {ex}");
+                    return;
+                }
+
+                CacheHelper.StoreResponse(ratesProvider, ratesResponse);
+            });
+
+            RatesUpdated?.Invoke();
+        }
+        finally
+        {
+            IsReceiving = false;
         }
     }
 }
