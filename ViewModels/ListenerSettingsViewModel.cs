@@ -9,9 +9,9 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using RateListener.Providers;
 
 namespace RateListener.ViewModels
 {
@@ -45,8 +45,13 @@ namespace RateListener.ViewModels
                 var ratesResponse = CacheHelper.GetCachedResponse(SelectedBankProvider.RatesProvider);
                 if (ratesResponse == null)
                 {
-                    ErrorMessage = "Не удалось загрузить данные о курсах";
-                    Rates.Clear();
+                    ErrorMessage = "No data";
+                    return;
+                }
+                if (!ratesResponse.Success)
+                {
+                    ErrorMessage = "Parsing error";
+                    ErrorMessageFull = ratesResponse.Message;
                     return;
                 }
                 ErrorMessage = string.Empty;
@@ -73,7 +78,7 @@ namespace RateListener.ViewModels
             get => GetVal<string>();
             set => SetVal(value, () => RaisePropertyChanged(nameof(Success)));
         }
-        
+
         public string ErrorMessageFull
         {
             get => GetVal<string>(string.Empty);

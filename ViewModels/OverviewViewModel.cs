@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -22,9 +23,9 @@ public class OverviewViewModel : ViewModelBase
     
     static OverviewViewModel()
     {
-        timer.Interval = TimeSpan.FromMinutes(1);
-        timer.Tick += (sender, e) => _ = FetchAllRatesAsync();
-        timer.Start();
+        Timer.Interval = TimeSpan.FromMinutes(1);
+        Timer.Tick += (sender, e) => _ = FetchAllRatesAsync();
+        Timer.Start();
     }
     
     private static void LoadConfig()
@@ -57,11 +58,11 @@ public class OverviewViewModel : ViewModelBase
 
     public static ObservableCollection<ListenerSettingsViewModel> Listeners { get; } = [];
 
-    public static event Action? RatesUpdated;
+    public static event Action RatesUpdated;
 
     public static bool IsReceiving { get; private set; }
 
-    private static readonly DispatcherTimer timer = new();
+    private static readonly DispatcherTimer Timer = new();
 
     public ListenerSettingsViewModel SelectedListener 
     {
@@ -94,25 +95,32 @@ public class OverviewViewModel : ViewModelBase
 
         try
         {
+            var dt = DateTime.Now;
+            Debug.WriteLine("Start getting rates");
             await BankProvider.SupportedBankProviders.ForEachAsync(async bankProvider =>
             {
                 RatesResponse ratesResponse;
                 var ratesProvider = bankProvider.RatesProvider;
 
-                var cachedResponse = CacheHelper.GetCachedResponse(ratesProvider);
                 try
                 {
-                    ratesResponse = cachedResponse 
-                                    ?? await ratesProvider.GetRatesResponse();
+                    ratesResponse = await ratesProvider.GetRatesResponse();
+                    ratesResponse.Success = true;
                 }
                 catch (Exception ex)
                 {
                     Logger.Log($"Error getting rates: {ex}");
-                    return;
+                    Debug.WriteLine($"Error getting rates: {ex}");
+                    ratesResponse = new RatesResponse()
+                    {
+                        Success = false,
+                        Message = ex.ToString()
+                    };
                 }
 
                 CacheHelper.StoreResponse(ratesProvider, ratesResponse);
             });
+            Debug.WriteLine($"Rates are updated in {(DateTime.Now - dt).TotalMilliseconds} ms");
 
             RatesUpdated?.Invoke();
         }

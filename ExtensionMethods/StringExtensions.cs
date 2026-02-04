@@ -29,7 +29,7 @@ namespace RateListener.ExtensionMethods
             regex.IsMatch(value) && regex.Matches(value)[0].Index == 0 && regex.Matches(value)[0].Length == value.Length;
 
         public static bool IsDigit(this char inChar) =>
-            inChar >= '0' && inChar <= '9';
+            inChar is >= '0' and <= '9';
 
         public static string Formatted(this string inStr, params object[] args) =>
             string.Format(inStr, args);
@@ -41,8 +41,8 @@ namespace RateListener.ExtensionMethods
         /// Удаляет все повторяющиеся запятые в строке, затем схлопывает повторяющиеся табы и пробелы до 1 пробела.
         /// Например, строка "    , ,  ab,  ,,   ,cdef, g  , ,h34, ,,5 , " будет сокращена до "ab, cdef, g, h34, 5"
         /// </summary>
-        /// <param name="inStr">входная строка</param>
-        /// <param name="replaceTo">Необязательный параметр. при желании, можно заменять запятые любыми строками (а не ", ")</param>
+        /// <param name="inStr">Входная строка</param>
+        /// <param name="replaceTo">Необязательный параметр. При желании, можно заменять запятые любыми строками (а не ", ")</param>
         /// <returns></returns>
         public static string RemoveEmptyCommas(this string inStr, string replaceTo = ", ")
         {
@@ -51,7 +51,7 @@ namespace RateListener.ExtensionMethods
             StringBuilder sb = new StringBuilder(inStr);
             do
             {
-                allMatches = regexAll.Matches(sb.ToString()).OfType<Match>().ToList();
+                allMatches = regexAll.Matches(sb.ToString()).ToList();
                 allMatches.Reverse();
                 foreach (var match in allMatches)
                 {
@@ -63,8 +63,8 @@ namespace RateListener.ExtensionMethods
                 }
             }
             while (allMatches.Any());
-            Regex regexSpaces = new Regex(@"(,\s{2,})");
-            allMatches = regexSpaces.Matches(sb.ToString()).OfType<Match>().ToList();
+            var regexSpaces = new Regex(@"(,\s{2,})");
+            allMatches = regexSpaces.Matches(sb.ToString()).ToList();
             allMatches.Reverse();
             foreach (var match in allMatches)
             {
@@ -88,7 +88,7 @@ namespace RateListener.ExtensionMethods
         public static string JoinedString<T>(this IEnumerable<T> enumerable, string separator = ",") =>
             string.Join(separator, enumerable);
 
-        private static readonly char[] ExcludeChars = { ' ', '.', ',', ';', '-', '(', ')', '#', '+' };
+        private static readonly char[] ExcludeChars = [' ', '.', ',', ';', '-', '(', ')', '#', '+'];
 
         public static string Last10PhoneDigits(this string phoneNumber)
         {
@@ -110,7 +110,7 @@ namespace RateListener.ExtensionMethods
         /// <summary>
         /// Возвращает слова в падеже, зависимом от заданного числа 
         /// </summary>
-        /// <param name="number">Число от которого зависит выбранное слово</param>
+        /// <param name="number">Число, от которого зависит выбранное слово</param>
         /// <param name="nominative">Именительный падеж слова. Например "день"</param>
         /// <param name="genitive">Родительный падеж слова. Например "дня"</param>
         /// <param name="plural">Множественное число слова. Например "дней"</param>
@@ -118,11 +118,9 @@ namespace RateListener.ExtensionMethods
         /// <returns></returns>
         public static string GetDeclension(this int number, string nominative, string genitive, string plural, bool includeNumber = true)
         {
-            number = number % 100;
-            if (number >= 11 && number <= 19)
-            {
+            number %= 100;
+            if (number is >= 11 and <= 19)
                 return includeNumber ? $"{number} {plural}" : $"{plural}";
-            }
 
             string result;
             var i = number % 10;

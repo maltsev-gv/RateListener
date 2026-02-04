@@ -7,5 +7,7 @@
         public const string Rub = "RUB";
         public const string Eur = "EUR";
         public const string Kgs = "KGS";
+        public const string Gbp = "GBP";
+        public const string Cny = "CNY";
     }
 }
