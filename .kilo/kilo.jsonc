@@ -1,0 +1,24 @@
+{
+    "$schema": "https://app.kilo.ai/config.json",
+    "mcp": {
+        "codegraph-ratelistener-kilo": {
+            "command": [
+                "codegraph",
+                "serve",
+                "--mcp",
+            ],
+            "enabled": true,
+            "type": "local"
+        },
+        "context-engine-ratelistener-kilo": {
+            "command": [
+                "C:\\Users\\Zver\\.local\\bin\\cce.exe",
+                "serve",
+                "--project-dir",
+                "D:\\Projects\\RateListener"
+            ],
+            "enabled": true,
+            "type": "local"
+        }
+    }
+}
