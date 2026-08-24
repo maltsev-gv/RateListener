@@ -24,9 +24,12 @@ namespace RateListener.ViewModels
 
             OverviewViewModel.RatesUpdated += UpdateUi;
         }
-        
+
+        public void Unsubscribe() =>
+            OverviewViewModel.RatesUpdated -= UpdateUi;
+
         private void UpdateMethod(object obj) =>
-            _ = OverviewViewModel.FetchAllRatesAsync();
+            _ = OverviewViewModel.FetchAllRatesAsync(true);
 
         private void ExchangeCurrencies(object obj) =>
             (SearchToCurr, SearchFromCurr) = (SearchFromCurr, SearchToCurr);
@@ -41,20 +44,26 @@ namespace RateListener.ViewModels
             {
                 if (SelectedBankProvider == null)
                     return;
-                
-                var ratesResponse = CacheHelper.GetCachedResponse(SelectedBankProvider.RatesProvider);
+
+                RequestNbkRates();
+                var ratesProvider = SelectedBankProvider.RatesProvider;
+                var ratesResponse = CacheHelper.GetCachedResponse(ratesProvider);
+                var errorResponse = CacheHelper.GetLastErrorResponse(ratesProvider);
+
                 if (ratesResponse == null)
                 {
-                    ErrorMessage = "No data";
+                    ErrorMessage = errorResponse != null ? "Parsing error" : "No data";
+                    ErrorMessageFull = errorResponse?.Message ?? string.Empty;
                     return;
                 }
-                if (!ratesResponse.Success)
-                {
-                    ErrorMessage = "Parsing error";
-                    ErrorMessageFull = ratesResponse.Message;
-                    return;
-                }
+
                 ErrorMessage = string.Empty;
+                ErrorMessageFull = string.Empty;
+                IsStaleError = errorResponse != null;
+                RateCellToolTip = IsStaleError
+                    ? $"Parsing error: {errorResponse.Message}\nLast value received at {ratesResponse.Received.ToLocalTime():dd.MM.yyyy HH:mm:ss}"
+                    : string.Empty;
+
                 Rates.Clear();
                 ratesResponse.Data.Mobile.OrderBy(r => r.ToString()).ForEach(c => Rates.Add(c));
 
@@ -87,8 +96,23 @@ namespace RateListener.ViewModels
         
         public bool Success => ErrorMessage.IsNullOrEmpty();
 
+        public bool IsStaleError
+        {
+            get => GetVal<bool>();
+            private set => SetVal(value);
+        }
+
+        public string RateCellToolTip
+        {
+            get => GetVal<string>(string.Empty);
+            private set => SetVal(value);
+        }
+
         private List<Chain> chainList = [];
         private string prevCurrencies = string.Empty;
+        private string prevBankName = string.Empty;
+        private double previousEffectiveRate;
+        private DateTime previousRateTime;
         private readonly object locker = new();
 
         public double FindChains(bool getInversedRate = false)
@@ -97,11 +121,14 @@ namespace RateListener.ViewModels
                 return 0;
 
             bool isCurrChanged;
+            bool isBankChanged;
             double bestRate;
             lock (locker)
             {
                 isCurrChanged = prevCurrencies.IsFilled() && prevCurrencies != $"{SearchFromCurr}_{SearchToCurr}";
                 prevCurrencies = $"{SearchFromCurr}_{SearchToCurr}";
+                isBankChanged = prevBankName.IsFilled() && prevBankName != BankProviderName;
+                prevBankName = BankProviderName;
 
                 var oldList = chainList.ToList();
                 chainList.Clear();
@@ -157,16 +184,18 @@ namespace RateListener.ViewModels
                     ShowNewOptimumWindow(LastEffectiveRate.RateToDisplay(), bestRate.RateToDisplay(), "depreciated");
                 }
             }
+            previousEffectiveRate = !isCurrChanged && !isBankChanged && LastEffectiveRate > 0
+                ? LastEffectiveRate
+                : 0;
+            previousRateTime = LastUpdateTime;
             LastEffectiveRate = bestRate;
             LastUpdateTime = DateTime.Now;
+            RaiseChange();
             return bestRate;
         }
 
-        private static void ShowNewOptimumWindow(string lastOptimum, string optimum, string changeType)
-        {
-            MessageBox.Show($"New optimum found: {optimum} instead of {lastOptimum} ({changeType})", "Rate listener", MessageBoxButton.OK,
-                MessageBoxImage.Exclamation, MessageBoxResult.OK, options: MessageBoxOptions.DefaultDesktopOnly);
-        }
+        private void ShowNewOptimumWindow(string lastOptimum, string optimum, string changeType) =>
+            NotificationService.ShowRateAlert(this, lastOptimum, optimum, changeType);
 
         private void FindChain(string from, string to, Rate baseRate, List<Rate> availableRates, List<ChainLink> chain)
         {
@@ -316,6 +345,32 @@ namespace RateListener.ViewModels
         public string LastOptimum => LastEffectiveRate.RateToDisplay();
         public string LastOptimumPrecised => LastEffectiveRate.RateToDisplay(true);
 
+        public double ChangeValue =>
+            previousEffectiveRate > 0 ? LastEffectiveRate - previousEffectiveRate : 0;
+
+        public string ChangeDisplay
+        {
+            get
+            {
+                var delta = Math.Round(ChangeValue, 5);
+                if (previousEffectiveRate <= 0 || Math.Abs(delta) < 0.000005)
+                    return string.Empty;
+                return $"{(delta > 0 ? "↑ +" : "↓ −")}{Math.Abs(delta):0.#####}";
+            }
+        }
+
+        public string ChangeToolTip =>
+            previousEffectiveRate > 0
+                ? $"Previous: {previousEffectiveRate.RateToDisplay(true)} ({previousRateTime:dd.MM HH:mm})"
+                : null;
+
+        private void RaiseChange()
+        {
+            RaisePropertyChanged(nameof(ChangeValue));
+            RaisePropertyChanged(nameof(ChangeDisplay));
+            RaisePropertyChanged(nameof(ChangeToolTip));
+        }
+
         public string SearchFromCurr
         {
             get => GetVal<string>();
@@ -342,7 +397,35 @@ namespace RateListener.ViewModels
             SearchFromCurr.IsFilled() && SearchToCurr.IsFilled()
             ? $"{SearchFromCurr} => {SearchToCurr}"
             : string.Empty;
-        
+
+        private bool nbkRequested;
+
+        public string NbkToolTip
+        {
+            get
+            {
+                if (!SearchFromCurr.IsFilled() || !SearchToCurr.IsFilled() ||
+                    !NbkRates.TryGetCrossRate(SearchFromCurr, SearchToCurr, out var cross))
+                    return null;
+                return LastEffectiveRate > 0
+                    ? $"NBK official {SearchFromCurr}/{SearchToCurr}: {cross:0.####}" +
+                      $"\nBest chain vs official: {(LastEffectiveRate / cross - 1) * 100:+0.##;-0.##}%"
+                    : $"NBK official {SearchFromCurr}/{SearchToCurr}: {cross:0.####}";
+            }
+        }
+
+        private void RequestNbkRates()
+        {
+            if (nbkRequested)
+                return;
+            nbkRequested = true;
+            _ = System.Threading.Tasks.Task.Run(async () =>
+            {
+                await NbkRates.GetRatesAsync();
+                RunInMainThread(() => RaisePropertyChanged(nameof(NbkToolTip)));
+            });
+        }
+
         public DateTime LastUpdateTime
         {
             get => GetVal<DateTime>();
@@ -442,21 +525,9 @@ namespace RateListener.ViewModels
 
         private void OpenLinkMethod(object obj)
         {
-            var psi = new ProcessStartInfo
-            {
-                FileName = "cmd",
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            var process = new Process { StartInfo = psi };
-            process.Start();
-
-            process.StandardInput.WriteLine($"start {BankProviderLink}");
-            process.StandardInput.Close();        
+            if (!BankProviderLink.IsFilled())
+                return;
+            Process.Start(new ProcessStartInfo(BankProviderLink) { UseShellExecute = true });
         }
 
         public BankProvider? SelectedBankProvider
@@ -468,9 +539,17 @@ namespace RateListener.ViewModels
                 {
                     BankProviderName = value.Name;
                     BankProviderLink = value.RatesProvider.Url;
+                    if (!ConfigHelper.IsLoading)
+                        PollIntervalSec = BankProvider.DefaultPollIntervalSec(value.Name);
                     StoreSettings();
                 }
             });
+        }
+
+        public double PollIntervalSec
+        {
+            get => GetVal<double>();
+            set => SetVal(value, StoreSettings);
         }
 
         public Guid Id { get; set; } = Guid.NewGuid();

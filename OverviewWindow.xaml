@@ -4,6 +4,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:viewModels="clr-namespace:RateListener.ViewModels"
+        xmlns:converters="clr-namespace:RateListener.Converters"
+        xmlns:controls="clr-namespace:RateListener.Controls"
         WindowStartupLocation="CenterScreen"
         mc:Ignorable="d"
         d:DataContext="{d:DesignInstance Type=viewModels:OverviewViewModel}"
@@ -38,18 +40,24 @@
                     <GridViewColumn Header="From->To" Width="100">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Direction}" />
+                                <TextBlock Text="{Binding Direction}"
+                                           ToolTip="{Binding NbkToolTip}" />
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
                     <GridViewColumn Header="Rate" Width="100">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock>
+                                <TextBlock Cursor="Hand" Background="Transparent"
+                                           MouseLeftButtonUp="OpenHistory_Click">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock" BasedOn="{StaticResource {x:Type TextBlock}}">
                                             <Setter Property="Text" Value="{Binding RateToDisplay}" />
+                                            <Setter Property="ToolTip" Value="{Binding RateCellToolTip}" />
                                             <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsStaleError}" Value="True">
+                                                    <Setter Property="Foreground" Value="Orange" />
+                                                </DataTrigger>
                                                 <DataTrigger Binding="{Binding Success}" Value="False">
                                                     <Setter Property="Text" Value="{Binding ErrorMessage}" />
                                                     <Setter Property="Foreground" Value="Red" />
@@ -76,10 +84,13 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="Change" Width="200">
+                    <GridViewColumn Header="Change" Width="120">
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding BuyingToDisplay}" />
+                                <TextBlock Text="{Binding ChangeDisplay}" Cursor="Hand" Background="Transparent"
+                                           MouseLeftButtonUp="OpenHistory_Click"
+                                           Foreground="{Binding ChangeValue, Converter={converters:ChangeToBrushConverter}}"
+                                           ToolTip="{Binding ChangeToolTip}" />
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
@@ -91,6 +102,9 @@
         <StackPanel Grid.Column="1" Grid.Row="0" VerticalAlignment="Center" Margin="3">
             <Button Command="{Binding AddCommand}">Add</Button>
             <Button Command="{Binding DeleteCommand}">Del</Button>
+            <CheckBox x:Name="AutostartCheckBox" Content="Autostart" Margin="3,5,3,5"
+                      Checked="AutostartCheckBox_OnChecked"
+                      Unchecked="AutostartCheckBox_OnUnchecked" />
         </StackPanel>
 
         <Grid Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" DataContext="{Binding SelectedListener}">
@@ -207,6 +221,16 @@
                     </Grid.RowDefinitions>
                     <ListBox Grid.Column="0" Grid.RowSpan="7" ItemsSource="{Binding Rates}" />
 
+                    <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0"
+                                HorizontalAlignment="Right">
+                        <TextBlock Text="interval,s" FontSize="11" Foreground="Gray"
+                                   VerticalAlignment="Center" Margin="5,0" />
+                        <controls:ValidatedTextBox
+                            Text="{Binding PollIntervalSec, UpdateSourceTrigger=PropertyChanged}"
+                            ValidationMode="PositiveNumber"
+                            VerticalAlignment="Center" Width="45" />
+                    </StackPanel>
+
                     <CheckBox Grid.Column="1" Grid.Row="1" Margin="5" IsChecked="{Binding IsImprovementAlert}">
                         <TextBlock Text="Alert on improvement" Margin="0" />
                     </CheckBox>
@@ -215,9 +239,10 @@
                                   IsEnabled="{Binding IsImprovementAlert}"
                                   IsChecked="{Binding IsAlertWhenMoreChecked}" VerticalContentAlignment="Center"
                                   HorizontalAlignment="Right" />
-                        <TextBox Text="{Binding AlertWhenMore, UpdateSourceTrigger=PropertyChanged}"
-                                 VerticalAlignment="Center"
-                                 IsEnabled="{Binding ElementName=cbMoreThan, Path=IsChecked}" Width="45" />
+                        <controls:ValidatedTextBox Text="{Binding AlertWhenMore, UpdateSourceTrigger=PropertyChanged}"
+                                                   ValidationMode="PositiveNumber"
+                                                   IsEnabled="{Binding ElementName=cbMoreThan, Path=IsChecked}"
+                                                   VerticalAlignment="Center" Width="45" />
                     </StackPanel>
 
                     <CheckBox Grid.Column="1" Grid.Row="4" VerticalAlignment="Center" Margin="5"
@@ -229,9 +254,10 @@
                                   IsEnabled="{Binding IsDepreciationAlert}"
                                   IsChecked="{Binding IsAlertWhenLessChecked}" VerticalContentAlignment="Center"
                                   HorizontalAlignment="Right" />
-                        <TextBox Text="{Binding AlertWhenLess, UpdateSourceTrigger=PropertyChanged}"
-                                 VerticalAlignment="Center"
-                                 IsEnabled="{Binding ElementName=cbLessThan, Path=IsChecked}" Width="45" />
+                        <controls:ValidatedTextBox Text="{Binding AlertWhenLess, UpdateSourceTrigger=PropertyChanged}"
+                                                   ValidationMode="PositiveNumber"
+                                                   IsEnabled="{Binding ElementName=cbLessThan, Path=IsChecked}"
+                                                   VerticalAlignment="Center" Width="45" />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="6" VerticalAlignment="Bottom"
                                 HorizontalAlignment="Left" Margin="5,0">

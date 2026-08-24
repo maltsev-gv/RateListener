@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
@@ -23,7 +24,7 @@ public class OverviewViewModel : ViewModelBase
     
     static OverviewViewModel()
     {
-        Timer.Interval = TimeSpan.FromMinutes(1);
+        Timer.Interval = TimeSpan.FromSeconds(15);
         Timer.Tick += (sender, e) => _ = FetchAllRatesAsync();
         Timer.Start();
     }
@@ -41,8 +42,8 @@ public class OverviewViewModel : ViewModelBase
                     ConfigHelper.IsLoading = true;
                     settings.ForEach(si => Listeners.Add(si.ToViewModel()));
                     ConfigHelper.IsLoading = false;
-                    
-                    _ = FetchAllRatesAsync();
+
+                    _ = FetchAllRatesAsync(true);
                 });
             }
         }
@@ -81,12 +82,13 @@ public class OverviewViewModel : ViewModelBase
     {
         if (SelectedListener != null)
         {
+            SelectedListener.Unsubscribe();
             Listeners.Remove(SelectedListener);
             SelectedListener = Listeners.LastOrDefault();
         }
     }
 
-    public static async Task FetchAllRatesAsync()
+    public static async Task FetchAllRatesAsync(bool force = false)
     {
         if (IsReceiving)
             return;
@@ -97,7 +99,13 @@ public class OverviewViewModel : ViewModelBase
         {
             var dt = DateTime.Now;
             Debug.WriteLine("Start getting rates");
-            await BankProvider.SupportedBankProviders.ForEachAsync(async bankProvider =>
+            var now = DateTime.Now;
+            var dueProviders = BankProvider.SupportedBankProviders
+                .Where(bankProvider => force || IsDueForUpdate(bankProvider, now))
+                .ToArray();
+            if (dueProviders.Length == 0)
+                return;
+            await dueProviders.ForEachAsync(async bankProvider =>
             {
                 RatesResponse ratesResponse;
                 var ratesProvider = bankProvider.RatesProvider;
@@ -118,6 +126,10 @@ public class OverviewViewModel : ViewModelBase
                     };
                 }
 
+                lock (LastFetchLock)
+                {
+                    LastFetchByProvider[bankProvider.Name] = DateTime.Now;
+                }
                 CacheHelper.StoreResponse(ratesProvider, ratesResponse);
             });
             Debug.WriteLine($"Rates are updated in {(DateTime.Now - dt).TotalMilliseconds} ms");
@@ -128,5 +140,30 @@ public class OverviewViewModel : ViewModelBase
         {
             IsReceiving = false;
         }
+    }
+
+    private static readonly object LastFetchLock = new();
+    private static readonly Dictionary<string, DateTime> LastFetchByProvider = [];
+
+    private static bool IsDueForUpdate(BankProvider bankProvider, DateTime now)
+    {
+        lock (LastFetchLock)
+        {
+            var last = LastFetchByProvider.GetValueOrDefault(bankProvider.Name, DateTime.MinValue);
+            return (now - last).TotalSeconds >= EffectiveIntervalSec(bankProvider.Name);
+        }
+    }
+
+    private static double EffectiveIntervalSec(string providerName)
+    {
+        var intervals = Listeners
+            .Where(l => l.BankProviderName == providerName)
+            .Select(l => l.PollIntervalSec > 0
+                ? l.PollIntervalSec
+                : BankProvider.DefaultPollIntervalSec(providerName))
+            .ToList();
+        return intervals.Count > 0
+            ? intervals.Min()
+            : BankProvider.DefaultPollIntervalSec(providerName);
     }
 }

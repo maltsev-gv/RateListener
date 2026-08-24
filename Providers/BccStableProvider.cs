@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using Flurl.Http;
 using HtmlAgilityPack;
+using RateListener.Helpers;
 using RateListener.Models;
 
 namespace RateListener.Providers;
@@ -71,6 +72,12 @@ internal class BccStableProvider : IRatesProvider
                 rates.Add(rate);
         }
 
+        if (rates.Count == 0)
+        {
+            ParseDiagnostics.SaveFailedSource(Name, html);
+            throw new InvalidOperationException($"{Name}: layout changed, 0 pairs parsed");
+        }
+
         ratesResponse.Data = new RateContainer
         {
             Mobile = rates.ToArray(),
@@ -86,7 +93,6 @@ internal class BccStableProvider : IRatesProvider
         var xpath = "//div[contains(@class, 'item-wrap') and contains(., '/ KZT') " +
                     "and count(preceding::h3[contains(text(), '" + nalText + "')]) > 0 " +
                     "and count(preceding::h3[contains(text(), '" + northText + "')]) = 0]";
-        var rateNodes = doc.DocumentNode.SelectNodes(xpath).ToArray();
-        return rateNodes;
+        return doc.DocumentNode.SelectNodes(xpath)?.ToArray() ?? [];
     }
 }

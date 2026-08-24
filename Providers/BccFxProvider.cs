@@ -1,10 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Flurl.Http;
 using HtmlAgilityPack;
+using RateListener.ExtensionMethods;
+using RateListener.Helpers;
 using RateListener.Models;
 
 namespace RateListener.Providers
@@ -30,14 +33,37 @@ namespace RateListener.Providers
             var rates = new List<Rate>();
             foreach (var rateNode in rateNodes)
             {
-                var rate = new Rate {SellCode = Currencies.Kzt};
                 var currNameNode = rateNode.SelectSingleNode(@"./div");
-                rate.BuyCode = currNameNode.InnerText.Trim(' ', '\n', '\t');
-                var text = rateNode.InnerText.Replace('\t', ' ').Replace('\n', ' ').Replace(rate.BuyCode, " ").Trim();
+                if (currNameNode == null)
+                    continue;
+                var buyCode = currNameNode.InnerText.Trim(' ', '\n', '\t');
+                if (buyCode.IsNullOrEmpty())
+                    continue;
+
+                var text = rateNode.InnerText.Replace('\t', ' ').Replace('\n', ' ').Replace(buyCode, " ").Trim();
                 var matches = regex.Matches(text).Where(m => m.Value != "").ToArray();
-                rate.BuyRate = double.Parse(matches[InvertedBuyAndSellRates ? 1 : 0].Value.Replace(" ", ""));
-                rate.SellRate = double.Parse(matches[InvertedBuyAndSellRates ? 0 : 1].Value.Replace(" ", ""));
-                rates.Add(rate);
+                if (matches.Length < 2)
+                    continue;
+                if (!double.TryParse(matches[InvertedBuyAndSellRates ? 1 : 0].Value.Replace(" ", ""),
+                        NumberStyles.Any, CultureInfo.InvariantCulture, out var buyRate) || buyRate <= 0)
+                    continue;
+                if (!double.TryParse(matches[InvertedBuyAndSellRates ? 0 : 1].Value.Replace(" ", ""),
+                        NumberStyles.Any, CultureInfo.InvariantCulture, out var sellRate) || sellRate <= 0)
+                    continue;
+
+                rates.Add(new Rate
+                {
+                    BuyCode = buyCode,
+                    SellCode = Currencies.Kzt,
+                    BuyRate = buyRate,
+                    SellRate = sellRate
+                });
+            }
+
+            if (rates.Count == 0)
+            {
+                ParseDiagnostics.SaveFailedSource(Name, html);
+                throw new InvalidOperationException($"{Name}: layout changed, 0 pairs parsed");
             }
 
             ratesResponse.Data = new RateContainer
@@ -47,13 +73,12 @@ namespace RateListener.Providers
             return ratesResponse;
         }
 
-        protected virtual HtmlNode[] FindRateNodes(HtmlDocument doc)
-        {
-            var mobileFxNode = doc.DocumentNode
-                .SelectSingleNode(@".//div[contains(@class,'text-lg') and .//div[contains(text(),'Валюта')]  and .//div[contains(text(),'Купить')]]")
-                .SelectSingleNode(@".//div[contains(@class,'text-dark')]");
-            var rateNodes = mobileFxNode.SelectNodes(@".//div[contains(@class,'mb-9')]").ToArray();
-            return rateNodes;
-        }
+    protected virtual HtmlNode[] FindRateNodes(HtmlDocument doc)
+    {
+        var mobileFxNode = doc.DocumentNode
+            .SelectSingleNode(@".//div[contains(@class,'text-lg') and .//div[contains(text(),'Валюта')]  and .//div[contains(text(),'Купить')]]")
+            ?.SelectSingleNode(@".//div[contains(@class,'text-dark')]");
+        return mobileFxNode?.SelectNodes(@".//div[contains(@class,'mb-9')]")?.ToArray() ?? [];
+    }
     }
 }

@@ -18,6 +18,7 @@ public class SettingsInfo
     public string AlertWhenMore { get; set; }
     public bool IsAlertWhenLessChecked { get; set; }
     public string AlertWhenLess { get; set; }
+    public double PollIntervalSec { get; set; }
     public double LastEffectiveRate { get; set; }
     public string SellingAmount { get; set; }
     public string BuyingAmount { get; set; }

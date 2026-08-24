@@ -12,12 +12,20 @@ namespace RateListener.Providers
 
         public string Url => Properties.Resources.ResourceManager.GetString("FfinProviderUrlJson");
 
-        public async Task<RatesResponse> GetRatesResponse()
+    public async Task<RatesResponse> GetRatesResponse()
+    {
+        var ratesJson = await Url.GetStringAsync();
+        var response = JsonHelper.GetObjectFromString<RatesResponse>(ratesJson);
+
+        if (response?.Data == null || (response.Data.Mobile.Length == 0 &&
+            response.Data.Cash.Length == 0 && response.Data.NonCash.Length == 0))
         {
-            var ratesJson = await Url.GetStringAsync();
-            var response = JsonHelper.GetObjectFromString<RatesResponse>(ratesJson);
-            response.Received = DateTime.UtcNow;
-            return response;
+            ParseDiagnostics.SaveFailedSource(Name, ratesJson);
+            throw new InvalidOperationException($"{Name}: empty rates payload");
         }
+
+        response.Received = DateTime.UtcNow;
+        return response;
+    }
     }
 }

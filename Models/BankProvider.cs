@@ -21,5 +21,8 @@ namespace RateListener.Models
             new(new BccStableProvider()),
             new(new CifraBankProvider())
         ];
+
+        public static double DefaultPollIntervalSec(string providerName) =>
+            providerName != null && providerName.Contains("Center Credit") ? 30 : 600;
     }
 }

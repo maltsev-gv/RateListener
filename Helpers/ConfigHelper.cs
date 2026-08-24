@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -38,11 +39,13 @@ public static class ConfigHelper
     {
         if (OverviewViewModel.IsReceiving)
             return;
-        
+
         try
         {
             lock (ConfigFile)
             {
+                RotateOldSegments();
+
                 File.WriteAllText(ConfigFile.FullName, JsonHelper.GetSerializedString(settingsToStore.Values));
             }
 
@@ -60,6 +63,64 @@ public static class ConfigHelper
         {
             Logger.Log($"Rates or configuration file could not be saved: {ex.Message}");
         }
+    }
+
+    private static DateTime lastRotationCheck = DateTime.MinValue;
+
+    private static void RotateOldSegments()
+    {
+        if ((DateTime.Now - lastRotationCheck).TotalHours < 1)
+            return;
+        lastRotationCheck = DateTime.Now;
+
+        var currentSegmentStart = RatesArchive.SegmentStart(DateTime.Now);
+        var changed = false;
+        foreach (var segmentStart in EnumerateStaleSegmentStarts(currentSegmentStart))
+        {
+            RatesArchive.MergeIntoSegment(
+                Path.Combine(RatesArchive.ArchiveDirectory, $"{segmentStart:yyyy-MM-dd}.zip"),
+                segmentStart, ratesToStore);
+
+            foreach (var container in ratesToStore.Values)
+            {
+                foreach (var direction in container.Directions)
+                {
+                    direction.Rates.RemoveAll(r =>
+                        !RatesArchive.TryParseTime(r.Time, out var t) ||
+                        t.Year < RatesArchive.SegmentEpoch.Year);
+                    direction.Rates.RemoveAll(r =>
+                        RatesArchive.TryParseTime(r.Time, out var t) &&
+                        RatesArchive.SegmentStart(t) == segmentStart);
+                }
+                container.Directions.RemoveAll(d => d.Rates.Count == 0);
+            }
+            changed = true;
+        }
+
+        if (!changed)
+            return;
+        foreach (var container in ratesToStore.Values.ToList())
+            container.Directions.RemoveAll(d => d.Rates.Count == 0);
+        ratesToStore = ratesToStore
+            .Where(kvp => kvp.Value.Directions.Count > 0)
+            .ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+        isRatesChanged = true;
+    }
+
+    private static List<DateTime> EnumerateStaleSegmentStarts(DateTime currentSegmentStart)
+    {
+        var starts = new SortedSet<DateTime>();
+        foreach (var container in ratesToStore.Values)
+        foreach (var direction in container.Directions)
+        foreach (var storedRate in direction.Rates)
+            if (RatesArchive.TryParseTime(storedRate.Time, out var t) &&
+                t.Year >= RatesArchive.SegmentEpoch.Year)
+            {
+                var segmentStart = RatesArchive.SegmentStart(t);
+                if (segmentStart < currentSegmentStart)
+                    starts.Add(segmentStart);
+            }
+        return [.. starts];
     }
 
     public static List<SettingsInfo> LoadSettings()
@@ -81,6 +142,11 @@ public static class ConfigHelper
             var content = File.ReadAllText(ConfigFile.FullName);
             settingsToStore = JsonConvert.DeserializeObject<List<SettingsInfo>>(content)
                 .ToDictionary(si => si.Id, si => si);
+
+            RotateOldSegments();
+            if (isRatesChanged)
+                File.WriteAllText(RatesFile.FullName, JsonHelper.GetSerializedString(ratesToStore.Values));
+
             return settingsToStore.Values.ToList();
         }
     }
@@ -111,16 +177,35 @@ public static class ConfigHelper
                 ratesContainer.Directions.Add(storedRates);
             }
 
-            var lastStoredRate = storedRates.Rates.OrderBy(r => r.Time)
-                .LastOrDefault()
-                ?.Rate;
-            if (lastStoredRate != viewModel.LastEffectiveRate.RateToDisplay(true))
+            const double minStoreStepMinutes = 5;
+            const double minChangePercent = 1;
+            var rates = storedRates.Rates;
+            StoredRate lastStored = null;
+            if (rates.Count > 0 && RatesArchive.TryParseTime(rates[^1].Time, out var lastTime) &&
+                (viewModel.LastUpdateTime - lastTime).TotalMinutes < minStoreStepMinutes)
+                lastStored = rates[^1];
+
+            var newRateValue = viewModel.LastEffectiveRate.RateToDisplay(true);
+            bool shouldStore;
+            if (viewModel.LastEffectiveRate <= 0 || viewModel.LastUpdateTime == default)
+                shouldStore = false;
+            else if (lastStored == null)
+                shouldStore = true;
+            else if (lastStored.Rate == newRateValue)
+                shouldStore = false;
+            else if (TryParseRateValue(lastStored.Rate, out var oldValue) &&
+                     TryParseRateValue(newRateValue, out var newValue))
+                shouldStore = Math.Abs(newValue - oldValue) >= oldValue * minChangePercent / 100.0;
+            else
+                shouldStore = true;
+
+            if (shouldStore)
             {
-                storedRates.Rates.Add(new StoredRate
+                rates.Add(new StoredRate
                 {
-                    Rate = viewModel.LastEffectiveRate.RateToDisplay(true),
+                    Rate = newRateValue,
                     InversedRate = viewModel.FindChains(true)
-                        .RateToDisplay(true),
+                        .ToString("0.#####", CultureInfo.InvariantCulture),
                     Time = $"{viewModel.LastUpdateTime:dd.MM.yyyy HH:mm:ss}"
                 });
                 isRatesChanged = true;
@@ -131,8 +216,49 @@ public static class ConfigHelper
         Timer.Start();
     }
 
-    public static ListenerSettingsViewModel ToViewModel(this SettingsInfo settings) =>
-        settings.Adapt<ListenerSettingsViewModel>();
+    private static bool TryParseRateValue(string source, out double value)
+    {
+        var cleaned = source?.Replace(" ", string.Empty).Replace("\u00A0", string.Empty);
+        if (cleaned == null)
+        {
+            value = 0;
+            return false;
+        }
+        if (cleaned.Contains('.') && cleaned.Contains(','))
+            cleaned = cleaned.Replace(",", string.Empty);
+        else
+            cleaned = cleaned.Replace(',', '.');
+        return double.TryParse(cleaned, NumberStyles.Any, CultureInfo.InvariantCulture, out value) && value > 0;
+    }
+
+    public static List<StoredRate> GetStoredRates(Guid listenerId, string direction, DateTime? from = null)
+    {
+        lock (ConfigFile)
+        {
+            var result = ratesToStore.GetValueOrDefault(listenerId)?.Directions
+                .FirstOrDefault(d => d.Direction == direction)?.Rates.ToList() ?? [];
+
+            if (from != null)
+            {
+                result.AddRange(RatesArchive.EnumerateArchivesCovering(from.Value)
+                    .SelectMany(RatesArchive.ReadSegment)
+                    .Where(c => c.ListenerId == listenerId)
+                    .SelectMany(c => c.Directions)
+                    .Where(d => d.Direction == direction)
+                    .SelectMany(d => d.Rates));
+            }
+
+            return result;
+        }
+    }
+
+    public static ListenerSettingsViewModel ToViewModel(this SettingsInfo settings)
+    {
+        var viewModel = settings.Adapt<ListenerSettingsViewModel>();
+        if (viewModel.PollIntervalSec <= 0 && settings.BankProviderName.IsFilled())
+            viewModel.PollIntervalSec = BankProvider.DefaultPollIntervalSec(settings.BankProviderName);
+        return viewModel;
+    }
     
     private static void ConfigureMapster()
     {

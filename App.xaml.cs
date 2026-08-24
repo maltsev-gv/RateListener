@@ -1,7 +1,12 @@
 ﻿using System;
-using System.Diagnostics;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using Hardcodet.Wpf.TaskbarNotification;
+using RateListener.Helpers;
+using RateListener.Service;
+using RateListener.ViewModels;
 
 namespace RateListener;
 
@@ -10,26 +15,57 @@ namespace RateListener;
 /// </summary>
 public partial class App
 {
-#nullable enable
+    public static bool IsReallyExiting { get; private set; }
+
     protected override void OnStartup(StartupEventArgs e)
     {
-        //TestMethod("OnStartup", this);
         base.OnStartup(e);
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
-    }
-}
 
-public static class ThrowIfNull
-{
-    public static void Validate(params (string, object?)[] args)
-    {
-        foreach (var tuple in args)
-            if (tuple.Item2 is null)
-            {
-                var stackTrace = new StackTrace();
-                var callerMethod = stackTrace.GetFrame(1)!.GetMethod()!;
-                var callerType = callerMethod.DeclaringType!;
-                throw new ArgumentNullException($"Argument {tuple.Item1} cannot be null (in {callerType.FullName}.{callerMethod.Name}()).");
-            }
+        if (Resources["TrayIcon"] is TaskbarIcon trayIcon)
+            InitAutostartMenuItem(trayIcon);
+
+        var startInBackground = e.Args.Any(arg =>
+            arg.Equals("/background", StringComparison.OrdinalIgnoreCase));
+        MainWindow = new OverviewWindow();
+        if (!startInBackground)
+            MainWindow.Show();
     }
+
+    private static void InitAutostartMenuItem(TaskbarIcon trayIcon)
+    {
+        var autostartItem = trayIcon.ContextMenu?.Items.OfType<MenuItem>()
+            .FirstOrDefault(item => item.Name == "AutostartMenuItem");
+        if (autostartItem != null)
+            autostartItem.IsChecked = AutoStartHelper.IsEnabled();
+    }
+
+    public void ShutdownApp()
+    {
+        IsReallyExiting = true;
+        if (Resources["TrayIcon"] is TaskbarIcon icon)
+            icon.Dispose();
+        Shutdown();
+    }
+
+    private void TrayIcon_OnTrayLeftMouseUp(object sender, RoutedEventArgs e) =>
+        NotificationService.ActivateMainWindow();
+
+    private void TrayIcon_OnBalloonTipClicked(object sender, RoutedEventArgs e) =>
+        NotificationService.ActivateMainWindow();
+
+    private void OpenClick(object sender, RoutedEventArgs e) =>
+        NotificationService.ActivateMainWindow();
+
+    private void UpdateNowClick(object sender, RoutedEventArgs e) =>
+        _ = OverviewViewModel.FetchAllRatesAsync(true);
+
+    private void AutostartClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem { IsChecked: var isChecked })
+            AutoStartHelper.SetEnabled(isChecked);
+    }
+
+    private void ExitClick(object sender, RoutedEventArgs e) =>
+        ShutdownApp();
 }
