@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using RateListener.ExtensionMethods;
 using RateListener.Helpers;
 using RateListener.Models;
@@ -59,9 +59,10 @@ namespace RateListener.ViewModels
 
                 ErrorMessage = string.Empty;
                 ErrorMessageFull = string.Empty;
-                IsStaleError = errorResponse != null;
-                RateCellToolTip = IsStaleError
-                    ? $"Parsing error: {errorResponse.Message}\nLast value received at {ratesResponse.Received.ToLocalTime():dd.MM.yyyy HH:mm:ss}"
+                var lastError = errorResponse;
+                IsStaleError = lastError != null;
+                RateCellToolTip = lastError != null
+                    ? $"Parsing error: {lastError.Message}\nLast value received at {ratesResponse.Received.ToLocalTime():dd.MM.yyyy HH:mm:ss}"
                     : string.Empty;
 
                 Rates.Clear();
@@ -355,14 +356,14 @@ namespace RateListener.ViewModels
                 var delta = Math.Round(ChangeValue, 5);
                 if (previousEffectiveRate <= 0 || Math.Abs(delta) < 0.000005)
                     return string.Empty;
-                return $"{(delta > 0 ? "↑ +" : "↓ −")}{Math.Abs(delta):0.#####}";
+                return $"{(delta > 0 ? "^ +" : "v ?")}{Math.Abs(delta):0.#####}";
             }
         }
 
         public string ChangeToolTip =>
             previousEffectiveRate > 0
                 ? $"Previous: {previousEffectiveRate.RateToDisplay(true)} ({previousRateTime:dd.MM HH:mm})"
-                : null;
+                : string.Empty;
 
         private void RaiseChange()
         {
@@ -406,7 +407,7 @@ namespace RateListener.ViewModels
             {
                 if (!SearchFromCurr.IsFilled() || !SearchToCurr.IsFilled() ||
                     !NbkRates.TryGetCrossRate(SearchFromCurr, SearchToCurr, out var cross))
-                    return null;
+                    return string.Empty;
                 return LastEffectiveRate > 0
                     ? $"NBK official {SearchFromCurr}/{SearchToCurr}: {cross:0.####}" +
                       $"\nBest chain vs official: {(LastEffectiveRate / cross - 1) * 100:+0.##;-0.##}%"

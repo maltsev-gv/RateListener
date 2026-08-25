@@ -4,14 +4,16 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace RateListener.ExtensionMethods
+namespace RateListener.ExtensionMethods;
+
+public static class ListExtensions
 {
-    public static class ListExtensions
+    /// <summary>
+    /// ForEach для любого IEnumerable
+    /// </summary>
+    extension(IEnumerable source)
     {
-        /// <summary>
-        /// ForEach для любого IEnumerable
-        /// </summary>
-        public static void ForEach(this IEnumerable source, Action<object> action)
+        public void ForEach(Action<object> action)
         {
             if (source != null)
             {
@@ -19,8 +21,11 @@ namespace RateListener.ExtensionMethods
                     action(item);
             }
         }
+    }
 
-        public static void ForEach<T>(this IEnumerable<T> source, Action<T> action)
+    extension<T>(IEnumerable<T> source)
+    {
+        public void ForEach(Action<T> action)
         {
             if (source != null)
             {
@@ -28,33 +33,42 @@ namespace RateListener.ExtensionMethods
                     action(item);
             }
         }
+    }
 
-        public static void RemoveAll<T>(this ObservableCollection<T> source, Predicate<T> match)
+    extension<T>(ObservableCollection<T> sourceCollection)
+    {
+        public void RemoveAll(Predicate<T> match)
         {
-            List<T> list = new List<T>();
-            foreach (T item in source)
+            List<T> list = [];
+            foreach (T item in sourceCollection)
             {
                 if (match(item))
                 {
                     list.Add(item);
                 }
             }
-            list.ForEach(id => source.Remove(id));
+            list.ForEach(id => sourceCollection.Remove(id));
         }
+    }
 
-        public static List<T> ToNullIfEmpty<T>(this List<T> source)
+    extension<T>(List<T> sourceList)
+    {
+        public List<T> ToNullIfEmpty()
         {
-            if (source == null || !source.Any())
+            if (sourceList == null || !sourceList.Any())
             {
                 return null;
             }
-            return source;
+            return sourceList;
         }
+    }
 
-        public static List<T> ToList<T>(this ICollection source) =>
-            new(source.OfType<T>());
+    extension(ICollection sourceCollection)
+    {
+        public List<T> ToList<T>() =>
+            [.. sourceCollection.OfType<T>()];
 
-        public static T[] ToArray<T>(this ICollection source) =>
-            source?.OfType<T>().ToArray();
+        public T[] ToArray<T>() =>
+            sourceCollection?.OfType<T>().ToArray();
     }
 }

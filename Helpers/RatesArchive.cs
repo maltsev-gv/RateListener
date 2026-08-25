@@ -21,10 +21,13 @@ public static class RatesArchive
     }
 
     public static string ArchiveDirectory =>
-        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ArchivedRates");
+        Path.Combine(ConfigHelper.DataDirectory, "ArchivedRates");
 
     private static string EntryName(DateTime segmentStart) =>
         $"rates_{segmentStart:yyyy-MM-dd}.json";
+
+    private static readonly object CacheLock = new();
+    private static readonly Dictionary<DateTime, List<StoredRatesContainer>> SegmentCache = [];
 
     public static List<StoredRatesContainer> ReadSegment(string zipPath)
     {
@@ -36,6 +39,22 @@ public static class RatesArchive
         using var entryStream = entry.Open();
         using var reader = new StreamReader(entryStream);
         return JsonConvert.DeserializeObject<List<StoredRatesContainer>>(reader.ReadToEnd()) ?? [];
+    }
+
+    public static List<StoredRatesContainer> ReadSegmentCached(string zipPath, DateTime segmentStart)
+    {
+        lock (CacheLock)
+        {
+            if (SegmentCache.TryGetValue(segmentStart, out var cached))
+                return cached;
+        }
+
+        var parsed = ReadSegment(zipPath);
+        lock (CacheLock)
+        {
+            SegmentCache[segmentStart] = parsed;
+        }
+        return parsed;
     }
 
     public static void WriteSegment(string zipPath, List<StoredRatesContainer> containers)
@@ -98,7 +117,7 @@ public static class RatesArchive
         DateTime.TryParseExact(source, "dd.MM.yyyy HH:mm:ss",
             CultureInfo.InvariantCulture, DateTimeStyles.None, out time);
 
-    public static IEnumerable<string> EnumerateArchivesCovering(DateTime from)
+    public static IEnumerable<(string ZipPath, DateTime SegmentStart)> EnumerateArchivesCovering(DateTime from)
     {
         if (!Directory.Exists(ArchiveDirectory))
             yield break;
@@ -110,7 +129,7 @@ public static class RatesArchive
                 continue;
             if (segmentStart.AddDays(SegmentDays) <= from)
                 continue;
-            yield return zipPath;
+            yield return (zipPath, segmentStart);
         }
     }
 }

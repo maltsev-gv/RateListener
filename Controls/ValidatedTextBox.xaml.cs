@@ -1,7 +1,5 @@
-using System;
 using System.Globalization;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Media;
 
 namespace RateListener.Controls;
@@ -12,7 +10,7 @@ public enum ValidationMode
     PositiveNumber
 }
 
-public partial class ValidatedTextBox : UserControl
+public partial class ValidatedTextBox
 {
     public static readonly DependencyProperty TextProperty = DependencyProperty.Register(
         nameof(Text), typeof(string), typeof(ValidatedTextBox),
@@ -58,9 +56,9 @@ public partial class ValidatedTextBox : UserControl
 
     private void RefreshValidation()
     {
-        IsValid = ValidationMode != ValidationMode.PositiveNumber || (
-            double.TryParse(Text.Replace(',', '.'),
-                NumberStyles.Number, CultureInfo.InvariantCulture, out var number) && number > 0);
+        IsValid = Text is not null &&
+            (ValidationMode != ValidationMode.PositiveNumber || double.TryParse(Text.Replace(',', '.'),
+            NumberStyles.Number, CultureInfo.InvariantCulture, out var number) && number > 0);
 
         Border.BorderBrush = IsValid ? Brushes.Transparent : Brushes.Orange;
     }

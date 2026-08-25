@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Reflection;
 
 namespace RateListener.Helpers
 {
@@ -10,8 +9,11 @@ namespace RateListener.Helpers
 
         static Logger()
         {
-            Location = Assembly.GetExecutingAssembly().Location;
-            Location = Path.Combine(Path.GetDirectoryName(Location)!, "Rates.log");
+            var dataDirectory = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                "RateListener");
+            Directory.CreateDirectory(dataDirectory);
+            Location = Path.Combine(dataDirectory, "Rates.log");
             File.AppendAllText(Location, $"{Environment.NewLine}{DateTime.Now:dd MMM yy H:mm:ss}: {nameof(RateListener)} started{Environment.NewLine}");
         }
 

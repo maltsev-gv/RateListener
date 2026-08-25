@@ -36,8 +36,7 @@ public partial class App
     {
         var autostartItem = trayIcon.ContextMenu?.Items.OfType<MenuItem>()
             .FirstOrDefault(item => item.Name == "AutostartMenuItem");
-        if (autostartItem != null)
-            autostartItem.IsChecked = AutoStartHelper.IsEnabled();
+        autostartItem?.IsChecked = AutoStartHelper.IsEnabled();
     }
 
     public void ShutdownApp()
@@ -45,7 +44,9 @@ public partial class App
         IsReallyExiting = true;
         if (Resources["TrayIcon"] is TaskbarIcon icon)
             icon.Dispose();
+        ConfigHelper.FlushPendingWrites();
         Shutdown();
+        Environment.Exit(0);
     }
 
     private void TrayIcon_OnTrayLeftMouseUp(object sender, RoutedEventArgs e) =>

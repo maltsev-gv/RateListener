@@ -3,48 +3,43 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
-namespace RateListener.ExtensionMethods
+namespace RateListener.ExtensionMethods;
+
+public static class StringExtensions
 {
-    public static class StringExtensions
+    private static readonly char[] ExcludeChars = [' ', '.', ',', ';', '-', '(', ')', '#', '+'];
+
+    /// <summary>
+    /// Эквивалент string.IsNullOrEmpty(inStr)
+    /// </summary>
+    extension(string inStr)
     {
-        /// <summary>
-        /// Эквивалент string.IsNullOrEmpty(inStr)
-        /// </summary>
-        public static bool IsNullOrEmpty(this string inStr) =>
+        public bool IsNullOrEmpty() =>
             string.IsNullOrEmpty(inStr);
 
         /// <summary>
         /// Эквивалент string.IsNullOrWhiteSpace(inStr)
         /// </summary>
-        public static bool IsNullOrWhiteSpace(this string inStr) =>
+        public bool IsNullOrWhiteSpace() =>
             string.IsNullOrWhiteSpace(inStr);
 
         /// <summary>
         /// Эквивалент !string.IsNullOrEmpty(inStr)
         /// </summary>
-        public static bool IsFilled(this string inStr) =>
+        public bool IsFilled() =>
             !string.IsNullOrEmpty(inStr);
 
-        public static bool IsFullMatch(this Regex regex, string value) =>
-            regex.IsMatch(value) && regex.Matches(value)[0].Index == 0 && regex.Matches(value)[0].Length == value.Length;
+        public bool IsAllDigits() =>
+            inStr.All(c => c.IsDigit());
 
-        public static bool IsDigit(this char inChar) =>
-            inChar is >= '0' and <= '9';
-
-        public static string Formatted(this string inStr, params object[] args) =>
+        public string Formatted(params object[] args) =>
             string.Format(inStr, args);
-
-        public static bool IsAllDigits(this string inStr) =>
-            inStr.All(IsDigit);
 
         /// <summary>
         /// Удаляет все повторяющиеся запятые в строке, затем схлопывает повторяющиеся табы и пробелы до 1 пробела.
         /// Например, строка "    , ,  ab,  ,,   ,cdef, g  , ,h34, ,,5 , " будет сокращена до "ab, cdef, g, h34, 5"
         /// </summary>
-        /// <param name="inStr">Входная строка</param>
-        /// <param name="replaceTo">Необязательный параметр. При желании, можно заменять запятые любыми строками (а не ", ")</param>
-        /// <returns></returns>
-        public static string RemoveEmptyCommas(this string inStr, string replaceTo = ", ")
+        public string RemoveEmptyCommas(string replaceTo = ", ")
         {
             Regex regexAll = new Regex(@"(\A\s*,\s*)|(\s*,\s*,)|(\s*,\s*\z)");
             List<Match> allMatches;
@@ -74,7 +69,7 @@ namespace RateListener.ExtensionMethods
             return sb.ToString();
         }
 
-        public static string UpFirstLetter(this string inStr)
+        public string UpFirstLetter()
         {
             if (inStr.IsNullOrEmpty())
             {
@@ -85,14 +80,9 @@ namespace RateListener.ExtensionMethods
             return sb.ToString();
         }
 
-        public static string JoinedString<T>(this IEnumerable<T> enumerable, string separator = ",") =>
-            string.Join(separator, enumerable);
-
-        private static readonly char[] ExcludeChars = [' ', '.', ',', ';', '-', '(', ')', '#', '+'];
-
-        public static string Last10PhoneDigits(this string phoneNumber)
+        public string Last10PhoneDigits()
         {
-            string newValue = new string(phoneNumber.Where(t => !ExcludeChars.Contains(t)).ToArray());
+            string newValue = new string(inStr.Where(t => !ExcludeChars.Contains(t)).ToArray());
             if (newValue.Length < 10)
             {
                 return string.Empty;
@@ -106,17 +96,26 @@ namespace RateListener.ExtensionMethods
 
             return newValue;
         }
+    }
 
+    extension(Regex regex)
+    {
+        public bool IsFullMatch(string value) =>
+            regex.IsMatch(value) && regex.Matches(value)[0].Index == 0 && regex.Matches(value)[0].Length == value.Length;
+    }
+
+    extension(char inChar)
+    {
+        public bool IsDigit() =>
+            inChar is >= '0' and <= '9';
+    }
+
+    extension(int number)
+    {
         /// <summary>
-        /// Возвращает слова в падеже, зависимом от заданного числа 
+        /// Возвращает слова в падеже, зависимом от заданного числа
         /// </summary>
-        /// <param name="number">Число, от которого зависит выбранное слово</param>
-        /// <param name="nominative">Именительный падеж слова. Например "день"</param>
-        /// <param name="genitive">Родительный падеж слова. Например "дня"</param>
-        /// <param name="plural">Множественное число слова. Например "дней"</param>
-        /// <param name="includeNumber">включать ли в результирующую строку само число</param>
-        /// <returns></returns>
-        public static string GetDeclension(this int number, string nominative, string genitive, string plural, bool includeNumber = true)
+        public string GetDeclension(string nominative, string genitive, string plural, bool includeNumber = true)
         {
             number %= 100;
             if (number is >= 11 and <= 19)
@@ -140,8 +139,17 @@ namespace RateListener.ExtensionMethods
             }
             return includeNumber ? $"{number} {result}" : $"{result}";
         }
+    }
 
-        public static string RateToDisplay(this double effRate, bool isPrecise = false) =>
+    extension<T>(IEnumerable<T> enumerable)
+    {
+        public string JoinedString(string separator = ",") =>
+            string.Join(separator, enumerable);
+    }
+
+    extension(double effRate)
+    {
+        public string RateToDisplay(bool isPrecise = false) =>
             isPrecise
                 ? effRate < 1 ? $"{1.0 / effRate:N5}" : $"{effRate:N5}"
                 : effRate < 1 ? $"{1.0 / effRate:N2}" : $"{effRate:N2}";

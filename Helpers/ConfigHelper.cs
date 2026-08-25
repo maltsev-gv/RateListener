@@ -22,15 +22,47 @@ public static class ConfigHelper
     private static Dictionary<Guid, SettingsInfo> settingsToStore = [];
     private static Dictionary<Guid, StoredRatesContainer> ratesToStore = [];
 
+    public static string DataDirectory { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "RateListener");
+
     static ConfigHelper()
     {
-        var path = Path.GetDirectoryName(Assembly.GetExecutingAssembly()
-            .Location);
-        ConfigFile = new FileInfo(Path.Combine(path!, "RateListener.config.json"));
-        RatesFile = new FileInfo(Path.Combine(path!, "RateListener.rates.json"));
+        Directory.CreateDirectory(DataDirectory);
+        ConfigFile = new FileInfo(Path.Combine(DataDirectory, "RateListener.config.json"));
+        RatesFile = new FileInfo(Path.Combine(DataDirectory, "RateListener.rates.json"));
+        ImportFromExecutableDirectory();
         Timer.Elapsed += TimerOnElapsed;
-        
+
         ConfigureMapster();
+    }
+
+    private static void ImportFromExecutableDirectory()
+    {
+        var executableDirectory = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location);
+        if (string.IsNullOrEmpty(executableDirectory) ||
+            string.Equals(executableDirectory, DataDirectory, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        TryImport(Path.Combine(executableDirectory, ConfigFile.Name), ConfigFile.FullName);
+        TryImport(Path.Combine(executableDirectory, RatesFile.Name), RatesFile.FullName);
+
+        var legacyArchiveDirectory = Path.Combine(executableDirectory, "ArchivedRates");
+        if (Directory.Exists(legacyArchiveDirectory) && !Directory.Exists(RatesArchive.ArchiveDirectory))
+            Directory.Move(legacyArchiveDirectory, RatesArchive.ArchiveDirectory);
+    }
+
+    private static void TryImport(string sourcePath, string destinationPath)
+    {
+        try
+        {
+            if (File.Exists(sourcePath) && !File.Exists(destinationPath))
+                File.Copy(sourcePath, destinationPath);
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Could not import {sourcePath} into {destinationPath}: {ex.Message}");
+        }
     }
 
     public static bool IsLoading { get; set; }
@@ -216,6 +248,23 @@ public static class ConfigHelper
         Timer.Start();
     }
 
+    public static void FlushPendingWrites()
+    {
+        try
+        {
+            lock (ConfigFile)
+            {
+                File.WriteAllText(ConfigFile.FullName, JsonHelper.GetSerializedString(settingsToStore.Values));
+                File.WriteAllText(RatesFile.FullName, JsonHelper.GetSerializedString(ratesToStore.Values));
+                isRatesChanged = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.Log($"Pending writes could not be flushed: {ex.Message}");
+        }
+    }
+
     private static bool TryParseRateValue(string source, out double value)
     {
         var cleaned = source?.Replace(" ", string.Empty).Replace("\u00A0", string.Empty);
@@ -241,7 +290,7 @@ public static class ConfigHelper
             if (from != null)
             {
                 result.AddRange(RatesArchive.EnumerateArchivesCovering(from.Value)
-                    .SelectMany(RatesArchive.ReadSegment)
+                    .SelectMany(a => RatesArchive.ReadSegmentCached(a.ZipPath, a.SegmentStart))
                     .Where(c => c.ListenerId == listenerId)
                     .SelectMany(c => c.Directions)
                     .Where(d => d.Direction == direction)

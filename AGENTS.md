@@ -43,7 +43,7 @@ Treat this repo as single-context; use root `CONTEXT.md` and `docs/adr/` if they
 
 ### Runtime shape
 
-- Single `net6.0-windows` WPF desktop app in `RateListener.csproj`; entry point `App.xaml.cs`, main window `OverviewWindow.xaml`.
+- Single `net10.0-windows` (C# 14) WPF desktop app in `RateListener.csproj`; entry point `App.xaml.cs`, main window `OverviewWindow.xaml`.
 - Hand-rolled MVVM: `ViewModels/` holds `ObservableObject`, `ViewModelBase`, `OverviewViewModel`, `ListenerSettingsViewModel`; relay commands live in `Service/RelayCommand.cs`; XAML value converters live in `Converters/`.
 - Rates pipeline: providers implement `Providers/IRatesProvider.cs` (`BccFxProvider`, `BccStableProvider`, `CifraBankProvider`, `FfinProvider`); HTTP calls go through Flurl.Http, JSON through Newtonsoft.Json, model mapping through Mapster.
 - Support layer in `Helpers/`: `Logger`, `ConfigHelper`, `CacheHelper`, `JsonHelper`, `RequestServiceHelper`; user settings persist via `Properties/Settings`.

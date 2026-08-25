@@ -14,21 +14,24 @@ public static class EnumerableExtensions
     /// <param name="source">Коллекция, для элементов которой надо выполнить ряд параллельных <c>action</c>-ов.</param>
     /// <param name="action">Асинхронное действие:<code>async item => { await SomeMethod(); ... }</code></param>
     /// <param name="maxTasksCount">Количество Task-ов, выполняемых одновременно. Если <c>maxTasksCount &lt;= 0</c> - число параллельных задач не ограничено.</param>
-    public static async Task ForEachAsync<T>(this IEnumerable<T> source, Func<T, Task> action, int maxTasksCount = 0)
+    extension<T>(IEnumerable<T> source)
     {
-        var sourceArr = source.ToArray();
-        maxTasksCount = maxTasksCount <= 0 ? sourceArr.Length : maxTasksCount;
-        var processed = 0;
-        do
+        public async Task ForEachAsync(Func<T, Task> action, int maxTasksCount = 0)
         {
-            foreach (var task in sourceArr
-                         .Skip(processed)
-                         .Take(maxTasksCount)
-                         .Select(action)
-                         .ToArray())
-                await task;
+            var sourceArr = source.ToArray();
+            maxTasksCount = maxTasksCount <= 0 ? sourceArr.Length : maxTasksCount;
+            var processed = 0;
+            do
+            {
+                foreach (var task in sourceArr
+                             .Skip(processed)
+                             .Take(maxTasksCount)
+                             .Select(action)
+                             .ToArray())
+                    await task;
 
-            processed += maxTasksCount;
-        } while (processed < sourceArr.Length);
+                processed += maxTasksCount;
+            } while (processed < sourceArr.Length);
+        }
     }
 }
